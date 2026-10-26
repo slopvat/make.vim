@@ -1,0 +1,36 @@
+# AI Disclosure:
+# - Authorship: AI-generated
+# - Models: claude-opus-5-5 (Anthropic)
+# - Scope: Synthetic Makefile.in in the style Automake generates, exercising
+#   Autoconf substitutions for the tests.
+
+@SET_MAKE@
+VPATH = @srcdir@
+prefix = @prefix@
+CC = @CC@
+@HAVE_FOO_TRUE@bin_PROGRAMS = foo$(EXEEXT)
+@HAVE_FOO_FALSE@bin_PROGRAMS =
+am__depfiles_remade = lib/$(DEPDIR)/alloca.Po \
+	lib/$(DEPDIR)/libfoo_a-bar.Po \
+	lib/$(DEPDIR)/libfoo_a-baz.Po
+@AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/alloca.Po@am__quote@ # am--include-marker
+
+lib/libfoo_a-bar.o: lib/bar.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(CFLAGS) -MT $@ -MD -MP -c -o $@ $<
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/$(DEPDIR)/libfoo_a-bar.Tpo lib/$(DEPDIR)/libfoo_a-bar.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/bar.c' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(CFLAGS) -c -o $@ $<
+@am__fastdepCC_FALSE@	@if test -f $@; then touch $@; fi
+
+install-binPROGRAMS: $(bin_PROGRAMS)
+	@$(NORMAL_INSTALL)
+	@list='$(bin_PROGRAMS)'; test -n "$(bindir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(bindir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(bindir)" || exit 1; \
+	fi; \
+	for p in $$list; do echo "$$p $$p"; done | \
+	sed 's/$(EXEEXT)$$//' | \
+	while read p p1; do if test -f $$p; then echo "$$p"; echo "$$p"; else :; fi; \
+	done

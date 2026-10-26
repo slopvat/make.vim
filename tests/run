@@ -1,0 +1,62 @@
+#!/bin/sh
+
+# Usage: tests/run [-u] [TEST]...
+#
+# Highlight each test Makefile (tests/*.mk) and compare the syntax groups
+# with the expected results in the matching ".out" file. When names of tests
+# are given, e.g. "shell", only those tests are run.
+#
+# AI Disclosure:
+# - Authorship: Autonomous
+# - Models: claude-opus-5-5 (Anthropic)
+# - Scope: Written to catch regressions while developing the syntax file.
+#
+# Options:
+#   -u  Update the expected results instead of comparing against them.
+#
+# Exit Statuses:
+# - 1: At least one test failed.
+# - 2: Bad usage / invalid command line options.
+
+set -e -u
+
+update=""
+while getopts u option; do
+    case "$option" in
+      u)    update=1 ;;
+      *)    exit 2 ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+cd "$(dirname "$0")/.."
+repository="$PWD"
+
+if [ $# -eq 0 ]; then
+    set -- tests/*.mk
+fi
+
+actual="$(mktemp)"
+trap 'rm -f "$actual"' EXIT
+
+failures=0
+for test in "$@"; do
+    test="tests/${test#tests/}"
+    test="${test%.mk}.mk"
+    expected="${test%.mk}.out"
+    vim -N -u NONE -i NONE -n -es -c "set rtp^=$repository" -c 'syntax on' \
+        -c 'set syntax=make' -c "let g:synspans_out = '$actual'" \
+        -S tools/synspans.vim "$test"
+    if [ "$update" ]; then
+        cp "$actual" "$expected"
+        echo "updated: $expected"
+    elif diff -u "$expected" "$actual" > /dev/null 2>&1; then
+        echo "ok: $test"
+    else
+        echo "FAILED: $test"
+        diff -u "$expected" "$actual" || true
+        failures=$((failures + 1))
+    fi
+done
+
+test "$failures" -eq 0
