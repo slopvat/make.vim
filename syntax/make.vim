@@ -153,7 +153,7 @@ syn cluster makeShTop contains=@makeShell,makeShParenSeparator
 " regions that track nesting.
 syn cluster makeShCommand
   \ contains=makeShConditional,makeShRepeat,makeShCommandLineCont
-syn match makeShSeparator contained transparent /\%#=1[;&|]/
+syn match makeShSeparator contained transparent /\%#=1[;&|{]/
   \ nextgroup=@makeShCommand skipwhite
 syn match makeShParenSeparator contained transparent /\%#=1[()]/
   \ nextgroup=@makeShCommand skipwhite
