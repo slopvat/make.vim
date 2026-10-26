@@ -16,11 +16,11 @@ them.
 Differences From Vim's Syntax File
 ----------------------------------
 
-- **Speed:** Highlighting is roughly 10 times faster. Every pattern uses
-  Vim's backtracking regular expression engine and is written so that the
-  engine can skip ahead to where it could match. In builds of Vim that use
-  musl's memory allocator, the NFA engine's allocations made each search an
-  order of magnitude slower.
+- **Speed:** Highlighting is 6 to 10 times faster; see the table below.
+  Every pattern uses Vim's backtracking regular expression engine and is
+  written so that the engine can skip ahead to where it could match. In
+  builds of Vim that use musl's memory allocator, the NFA engine's
+  allocations made each search an order of magnitude slower.
 - **Shell code:** `$$` is treated as an escaped dollar sign, so
   `"$${regex:-^$$}"` is a string containing a parameter expansion that
   contains an escaped `$`, not an unterminated mess. Single- and
@@ -33,6 +33,26 @@ Differences From Vim's Syntax File
   recipe line when it follows a rule, which is how Make interprets it.
   Comments, blank lines and conditionals between recipe lines don't end the
   recipe.
+- **Variable values:** Values are highlighted as shell code since that's
+  how most of them are used. Comments in values are recognized the way Make
+  recognizes them, even inside what looks like a shell string.
+- **Templates:** In the body of a `define`, `$$(...)` is highlighted as a
+  reference since it becomes one when the body is evaluated by
+  `$(eval ...)`. The same goes for prerequisites, where `$$(...)` is
+  expanded by `.SECONDEXPANSION`.
+- **Errors:** Recipe lines indented with spaces instead of a tab, white
+  space after a backslash that was meant to continue a line and references
+  that aren't closed by the end of their logical line are highlighted as
+  errors.
+
+Time taken to highlight every line of a file in a musl-linked build of Vim
+9.1.1868:
+
+| File                          | Lines  | Vim's File | This File |
+|-------------------------------|--------|------------|-----------|
+| A hand-written POSIX Makefile | 1,205  | 0.36s      | 0.04s     |
+| Vim's `src/Makefile`          | 4,779  | 1.01s      | 0.11s     |
+| GNU coreutils' `Makefile.in`  | 29,607 | 11.3s      | 1.9s      |
 
 Installation
 ------------
@@ -81,6 +101,23 @@ Highlighting Groups
 | `makeShConditional`  | Conditional  | `if`, `then`, `case`, ...            |
 | `makeShRepeat`       | Repeat       | `for`, `while`, `do`, ...            |
 | `makeShComment`      | Comment      | Shell comments in recipes            |
+| `makeMisindented`    | Error        | Recipe lines indented with spaces    |
+| `makeContError`      | Error        | White space after a backslash        |
+| `makeRefError`       | Error        | Unterminated references              |
+
+Items used inside the body of a `define` have a `Def` suffix, e.g.
+`makeRecipeDef`, and are linked to the groups without the suffix.
+
+Limitations
+-----------
+
+- `.RECIPEPREFIX` isn't supported; recipe lines must start with a tab.
+- Inside a `define`, `$$(...)` is still a command substitution when it's in
+  a `$(shell ...)` call or the word after `case`.
+- A backslash at the end of a line always continues the line, even when it's
+  escaped by another backslash.
+- References nested more than three levels deep in the names of targets and
+  variables keep a line from being recognized as a rule or assignment.
 
 Development
 -----------

@@ -84,6 +84,9 @@ debug: private DEBUG = 1
 
 all: a .WAIT b
 
+.SECONDEXPANSION:
+prog: $$(OBJS) $$@.c
+
 clean:
 	-rm -f *.o
 	@echo cleaned
@@ -148,3 +151,17 @@ text
 endef
 
 $(foreach p,$(PROGRAMS),$(eval $(call TEMPLATE,$(p))))
+
+# Mistakes.
+misindented:
+	echo tab-indented
+    echo space-indented
+    # A comment indented with spaces is fine.
+  ifeq ($(V),1)
+    $(info so is a function call)
+  endif
+    VALID_ASSIGNMENT = ends the recipe
+space-after-backslash: one \ 
+	two
+UNTERMINATED_BRACES = ${oops
+DEEPLY_NESTED = $(a $(b $(c $(d $(e x)))))

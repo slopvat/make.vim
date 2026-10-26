@@ -1,6 +1,6 @@
 " Usage: vim -N -u NONE -i NONE -n -es -c 'set rtp^=REPOSITORY' \
-"          -c 'syntax on' -c 'set syntax=make' -c 'let g:synspans_out = "OUT"' \
-"          -S synspans.vim FILE
+"          -c 'syntax on' -c 'set syntax=make' \
+"          -c 'let g:synspans_out = "OUT"' -S synspans.vim FILE
 "
 " Write a copy of the buffer to the file named by g:synspans_out in which
 " every run of characters highlighted by a syntax group is written as
