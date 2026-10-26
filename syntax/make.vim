@@ -83,6 +83,15 @@ let s:functions = join([
 
 " Functions whose arguments use "%" in patterns.
 let s:pattern_functions = 'patsubst\|filter\%(-out\)\='
+" Functions whose names aren't also shell commands or keywords, so "$$(" in
+" front of one in a variable value is a call deferred until the value is
+" expanded again, e.g. by $(eval ...), not a command substitution.
+let s:deferred_functions = join([
+  \ 'abspath', 'addprefix', 'addsuffix', 'and', 'call', 'error',
+  \ 'findstring', 'firstword', 'flavor', 'foreach', 'info', 'intcmp',
+  \ 'lastword', 'let', 'notdir', 'or', 'origin', 'subst', 'suffix', 'value',
+  \ 'warning', 'wildcard', 'word', 'wordlist', 'words', s:pattern_functions
+  \ ], '\|')
 
 let s:special_targets = join([
   \ 'BEGIN', 'DEFAULT', 'DELETE_ON_ERROR', 'END', 'ERROR', 'EXEC',
@@ -244,6 +253,19 @@ syn region makeShCmdSub contained matchgroup=makeShCmdSubDelim
   \ start=/\%#=1\$\$(/ end=/\%#=1)/ contains=@makeShell,makeShParens
 syn region makeShParens contained transparent start=/\%#=1(/ end=/\%#=1)/
 
+" Deferred function calls in variable values, which are defined after shell
+" command substitutions so they take priority. "%" is only highlighted in
+" the arguments of the functions that take patterns.
+for [s:names, s:pattern] in [[s:deferred_functions, ''],
+                           \ [s:pattern_functions, ',makePattern']]
+  exe 'syn region makeDeferredCall contained transparent matchgroup=makeRef'
+    \ 'start=/\%#=1\$\$(\ze\%(' . s:names . '\)[ \t]/'
+    \ 'end=/\%#=1)\|\_$\%(\\\)\@1<!/'
+    \ 'contains=makeCallName,@makeExpansions,@makeEscExpansions,'
+    \ . '@makeLineEnd,makeParens' . s:pattern
+endfor
+unlet s:names s:pattern
+
 " Escapes in double-quoted strings.
 syn match makeShDQEscape contained /\%#=1\\\%(\$\$\|[\\"`]\)/
 
@@ -370,8 +392,9 @@ let s:template =<< trim END
     \ contains=@makeExpansions nextgroup=makeAssignOp{S} skipwhite
   syn match makeAssignOp{S} contained /\%#=1\%(:::\|::\|[:+?!]\)\==/
     \ nextgroup=makeValue{S} skipwhite
-  " Values are highlighted as shell code since that's how most of them end
-  " up being used. A "#" outside of a reference starts a comment even in
+  " Values are highlighted as shell code since that's how most of them end up
+  " being used, except for calls to Make functions deferred with "$$", e.g.
+  " "$$(error ...)". A "#" outside of a reference starts a comment even in
   " what looks like a shell string, so the value ends there, and the comment
   " is matched by whatever contains the line; Vim ignores regions with
   " zero-width starts like this one if they have a "nextgroup". Since GNU
@@ -385,7 +408,7 @@ let s:template =<< trim END
   " an empty region ended where it started, Vim would skip the comment.
   syn region makeValue{S} contained start=/\%#=1\ze[^[:space:]#]/
     \ skip=/\%#=1\\\%([\\#]\|$\)\|\$\%(\$\|[({][^)}#]*#\)/
-    \ end=/\%#=1\ze#\|$/ keepend contains=@makeShTop{S}
+    \ end=/\%#=1\ze#\|$/ keepend contains=@makeShTop{S},makeDeferredCall
 
   syn keyword makeModifier{S} {CONTAINED} export unexport override private
     \ nextgroup=makeModifier{S},makeStatement,makeDirArgs,makeVariable{S},
@@ -539,4 +562,5 @@ let b:current_syntax = "make"
 
 let &cpo = s:cpo_save
 unlet s:cpo_save s:bol s:ref s:var s:assign s:targets s:ruleop s:inrule
-  \ s:misindented s:functions s:pattern_functions s:special_targets
+  \ s:misindented s:functions s:pattern_functions s:deferred_functions
+  \ s:special_targets

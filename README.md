@@ -34,7 +34,9 @@ Differences From Vim's Syntax File
   Comments, blank lines and conditionals between recipe lines don't end the
   recipe.
 - **Variable values:** Values are highlighted as shell code since that's
-  how most of them are used. Comments in values are recognized the way Make
+  how most of them are used. The exception is a function call deferred with
+  `$$`, e.g. `$$(error ...)`, when the function's name isn't also a shell
+  command or keyword. Comments in values are recognized the way Make
   recognizes them, even inside what looks like a shell string.
 - **Templates and canned recipes:** In the body of a `define`, `$$(...)`
   is highlighted as a reference or function call, and `$$@`, `$$<`, `$$^`,
@@ -121,7 +123,10 @@ Limitations
 - Microsoft NMAKE's syntax isn't supported, and neither is
   `.RECIPEPREFIX`; recipe lines must start with a tab.
 - Outside of a `define`, `$$(...)` in a variable value is highlighted as a
-  shell command substitution even when the value is used by `$(eval ...)`.
+  shell command substitution even when the value is used by `$(eval ...)`,
+  unless it's a call to a function like `$$(error ...)` whose name isn't
+  also a shell command or keyword. `$$(VAR)`, `$$(eval ...)` and
+  `$$(sort ...)` are command substitutions.
 - Inside a `define`, `$$(...)` is still a command substitution when it's in
   a `$(shell ...)` call or the word after `case`.
 - A backslash at the end of a line always continues the line, even when it's

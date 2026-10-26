@@ -49,6 +49,9 @@ UNKNOWN_CALL = $(not-a-function arg)
 LOWERCASE = $(prefix)/bin $(bindir)
 BRACES = ${subst a,b,${X}}
 ESCAPED = $$(NOT_A_REFERENCE) $$$(A_REFERENCE)
+# Function calls deferred with "$$" are Make, but other "$$(" are shell.
+NO_TESTS := $$(error tests can't be built in this configuration)
+OBJS_OF = $$(patsubst %.c,%.o,$$(filter %.c,$$^)) $$(sort -u list.txt)
 CONTINUED_CALL = $(foreach f,$(FILES),\
 	$(dir $(f)) \
 	$(notdir $(f)))
