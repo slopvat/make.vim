@@ -27,6 +27,7 @@ NESTED_$(CC)_NAME = nested
 $(PREFIX)_DIR = dir
 HASH = \#not-a-comment
 VALUE = value # trailing comment
+EMPTY_VALUE = # comment
 LIST = \
 	one \
 	two \
@@ -48,6 +49,9 @@ UNKNOWN_CALL = $(not-a-function arg)
 LOWERCASE = $(prefix)/bin $(bindir)
 BRACES = ${subst a,b,${X}}
 ESCAPED = $$(NOT_A_REFERENCE) $$$(A_REFERENCE)
+CONTINUED_CALL = $(foreach f,$(FILES),\
+	$(dir $(f)) \
+	$(notdir $(f)))
 UNTERMINATED = $(oops
 AFTER_UNTERMINATED = fine
 
@@ -56,6 +60,8 @@ all: prog lib.a
 
 prog: main.o util.o | builddir
 	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+	$(foreach f,$^,\
+		echo $(f);)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -147,10 +153,14 @@ endef
 
 override define OVERRIDDEN
 text
-	endef inside a tab-indented line doesn't end it
+	endef in a recipe line does not end the body
 endef
 
 $(foreach p,$(PROGRAMS),$(eval $(call TEMPLATE,$(p))))
+
+# A line that isn't recognized mustn't start a "define" that never ends.
+!IF "$(TYPE)" == "define"
+AFTER_UNRECOGNIZED_DEFINE = 1
 
 # Mistakes.
 misindented:

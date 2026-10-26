@@ -36,10 +36,13 @@ Differences From Vim's Syntax File
 - **Variable values:** Values are highlighted as shell code since that's
   how most of them are used. Comments in values are recognized the way Make
   recognizes them, even inside what looks like a shell string.
-- **Templates:** In the body of a `define`, `$$(...)` is highlighted as a
-  reference since it becomes one when the body is evaluated by
-  `$(eval ...)`. The same goes for prerequisites, where `$$(...)` is
-  expanded by `.SECONDEXPANSION`.
+- **Templates and canned recipes:** In the body of a `define`, `$$(...)`
+  is highlighted as a reference or function call, and `$$@`, `$$<`, `$$^`,
+  etc. as automatic variables, since that's what they become when the body
+  is evaluated by `$(eval ...)`. The same goes for prerequisites, where
+  they're expanded by `.SECONDEXPANSION`, and for the inside of other
+  references and function calls. Lines in a `define` that start with a tab
+  are highlighted as recipe lines.
 - **Errors:** Recipe lines indented with spaces instead of a tab, white
   space after a backslash that was meant to continue a line and references
   that aren't closed by the end of their logical line are highlighted as
@@ -51,8 +54,8 @@ Time taken to highlight every line of a file in a musl-linked build of Vim
 | File                          | Lines  | Vim's File | This File |
 |-------------------------------|--------|------------|-----------|
 | A hand-written POSIX Makefile | 1,205  | 0.36s      | 0.04s     |
-| Vim's `src/Makefile`          | 4,779  | 1.01s      | 0.11s     |
-| GNU coreutils' `Makefile.in`  | 29,607 | 11.3s      | 1.9s      |
+| Vim's `src/Makefile`          | 4,779  | 1.01s      | 0.12s     |
+| GNU coreutils' `Makefile.in`  | 29,607 | 11.3s      | 2.0s      |
 
 Installation
 ------------
@@ -81,7 +84,7 @@ Highlighting Groups
 | `makeCallName`       | Function     | Names of GNU Make functions          |
 | `makeEscDollar`      | Special      | `$$` not followed by a shell name    |
 | `makeLineCont`       | Special      | Backslashes that continue lines      |
-| `makeConfig`         | PreCondit    | Autoconf substitutions like `@CC@`   |
+| `makeConfig`         | PreCondit    | Autoconf substitutions like `@CC@`¹  |
 | `makeComment`        | Comment      | Make comments                        |
 | `makeConditional`    | PreCondit    | `ifeq`, `.if`, `.for`, ...           |
 | `makeInclude`        | Include      | `include`, `.include`, ...           |
@@ -105,13 +108,20 @@ Highlighting Groups
 | `makeContError`      | Error        | White space after a backslash        |
 | `makeRefError`       | Error        | Unterminated references              |
 
+¹ Only in files with names ending in `.in` or `.am`, which are the ones
+configure processes. Elsewhere, text like `@VERSION@` is usually a
+placeholder that a recipe replaces.
+
 Items used inside the body of a `define` have a `Def` suffix, e.g.
 `makeRecipeDef`, and are linked to the groups without the suffix.
 
 Limitations
 -----------
 
-- `.RECIPEPREFIX` isn't supported; recipe lines must start with a tab.
+- Microsoft NMAKE's syntax isn't supported, and neither is
+  `.RECIPEPREFIX`; recipe lines must start with a tab.
+- Outside of a `define`, `$$(...)` in a variable value is highlighted as a
+  shell command substitution even when the value is used by `$(eval ...)`.
 - Inside a `define`, `$$(...)` is still a command substitution when it's in
   a `$(shell ...)` call or the word after `case`.
 - A backslash at the end of a line always continues the line, even when it's
@@ -123,8 +133,8 @@ Development
 -----------
 
 - `tests/run` highlights each Makefile in `tests` and compares the result
-  with the matching `.out` file. Run `tests/run -u` to update the expected
-  results after reviewing the differences.
+  with the file of the same name with `.out` appended. Run `tests/run -u` to
+  update the expected results after reviewing the differences.
 - `tools/synspans.vim` writes a copy of a buffer that shows the syntax group
   of every run of text. It's what `tests/run` uses.
 - `tools/benchmark.vim` prints how long it takes to highlight a file.

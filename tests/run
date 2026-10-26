@@ -2,9 +2,10 @@
 
 # Usage: tests/run [-u] [TEST]...
 #
-# Highlight each test Makefile (tests/*.mk) and compare the syntax groups
-# with the expected results in the matching ".out" file. When names of tests
-# are given, e.g. "shell", only those tests are run.
+# Highlight each test Makefile (tests/*.mk and tests/*.in) and compare the
+# syntax groups with the expected results in the file with ".out" appended to
+# the name. When names of tests are given, e.g. "shell", only those tests are
+# run. Autoconf substitutions are only highlighted in the ".in" files.
 #
 # AI Disclosure:
 # - Authorship: Autonomous
@@ -33,7 +34,7 @@ cd "$(dirname "$0")/.."
 repository="$PWD"
 
 if [ $# -eq 0 ]; then
-    set -- tests/*.mk
+    set -- tests/*.mk tests/*.in
 fi
 
 actual="$(mktemp)"
@@ -42,8 +43,11 @@ trap 'rm -f "$actual"' EXIT
 failures=0
 for test in "$@"; do
     test="tests/${test#tests/}"
-    test="${test%.mk}.mk"
-    expected="${test%.mk}.out"
+    test="${test%.out}"
+    if ! [ -e "$test" ]; then
+        test="$(ls "$test".mk "$test".in 2>/dev/null | head -n 1)"
+    fi
+    expected="$test.out"
     vim -N -u NONE -i NONE -n -es -c "set rtp^=$repository" -c 'syntax on' \
         -c 'set syntax=make' -c "let g:synspans_out = '$actual'" \
         -S tools/synspans.vim "$test"

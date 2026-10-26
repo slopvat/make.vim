@@ -41,6 +41,8 @@ keywords:
 	done
 	while read -r line; do echo "$$line"; done < input
 	until false; do break; done
+	for x in a; do { echo $$x; } \
+	done
 	if ! $(MAKE) -k; then (cd sub && $(MAKE)) fi
 	test -n "$(V)" && if true; then echo if; fi
 	@if true; then :; fi
@@ -59,6 +61,7 @@ escapes:
 	find . -name '*.o' -exec rm {} \;
 	echo \$$HOME \$(MAKE_VAR)
 	printf '%s\n' a\ b
+	sed -e "s|@PREFIX@|$(prefix)|" < in > out
 
 prefixes:
 	@echo silent

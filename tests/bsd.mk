@@ -10,6 +10,7 @@ CSRCS = ${SRCS:M*.c}
 UPPER = ${PROG:tu}
 SUBST = ${SRCS:S/.c/.o/g}
 SHELL_OUT != uname -s
+OUTFILES = ${TESTS:@test@${.CURDIR}/${test}.out@}
 
 .include <bsd.own.mk>
 .include "local.mk"
@@ -49,6 +50,7 @@ ${f:R}.o: ${f}
 .PATH.c: src/c
 .ORDER: a b
 .NOTPARALLEL:
+unexport.out: export.mk
 
 ${PROG}: ${OBJS}
 	${CC} -o ${.TARGET} ${.ALLSRC}
