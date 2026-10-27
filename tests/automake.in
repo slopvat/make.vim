@@ -48,3 +48,5 @@ tic$x: $(DEPS_TIC)
 .c.o:
 	@RULE_CC@
 	@ECHO_CC@$(CC) -c $<
+
+VPATH = .:@srcdir@

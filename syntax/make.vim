@@ -136,12 +136,11 @@ syn match makeLineCont /\%#=1\\$/
 syn match makeEscDollar /\%#=1\$\$/
 " Autoconf substitutions like "@CC@" are only recognized in the files that
 " configure processes, e.g. Makefile.in; elsewhere, text like "@VERSION@" is
-" more likely to be a placeholder a recipe replaces. They're not recognized
-" after ":", where "@" starts a BSD loop modifier like "${LIST:@x@...@}".
-" Lines like "@if gcc-bootstrap" and "@endif gcc-bootstrap", which GCC and
-" Binutils use even in recipes, tell configure which lines to keep.
+" more likely to be a placeholder a recipe replaces. Lines like "@if
+" gcc-bootstrap" and "@endif gcc-bootstrap", which GCC and Binutils use even
+" in recipes, tell configure which lines to keep.
 if s:autoconf
-  syn match makeConfig /\%#=1@\%(:@\)\@2<!\h\w*@/
+  syn match makeConfig /\%#=1@\h\w*@/
   syn match makeConfigIf /\%#=1^@\%(end\)\=if\s.*/
 endif
 
@@ -353,12 +352,14 @@ syn region makeDirArgs contained start=/\%#=1\ze[^[:space:]#]/
   \ skip=/\%#=1\\\%([\\#]\|$\)\|\$\%(\$\_$\@!\|[({][^)}#]*#\)/
   \ end=/\%#=1\ze#\|$/ keepend
   \ contains=@makeExpansions,@makeEscExpansions,@makeLineEnd,makePattern,
-  \makeString
+  \makeString,makeAngleString
 syn region makeString contained start=/\%#=1"/ end=/\%#=1"/ oneline
   \ contains=@makeExpansions
 syn region makeString contained start=/\%#=1'/ end=/\%#=1'/ oneline
   \ contains=@makeExpansions
-syn match makeString contained /\%#=1<[^>]*>/ contains=@makeExpansions
+" File names like ".include <bsd.prog.mk>", which aren't recognized in the
+" expressions of BSD conditionals, where "<" and ">" compare numbers.
+syn match makeAngleString contained /\%#=1<[^>]*>/ contains=@makeExpansions
 
 syn match makePattern contained /\%#=1%/
 syn match makeRuleOp contained /\%#=1:/
@@ -563,6 +564,7 @@ syn sync fromstart
 
 " Highlighting ---------------------------------------------------------------
 
+hi def link makeAngleString makeString
 hi def link makeAssignOp Operator
 hi def link makeBSDConditional makeConditional
 hi def link makeBSDFunction Function

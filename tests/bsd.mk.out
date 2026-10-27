@@ -12,7 +12,7 @@
   12 [makeVariable:SHELL_OUT] [makeAssignOp:!=][makeValue: uname -s]
   13 [makeVariable:OUTFILES] [makeAssignOp:=][makeValue: ][makeRef:${TESTS:@test@${.CURDIR}/${test}.out@}]
   14 
-  15 [makeInclude:.include] [makeString:<bsd.own.mk>]
+  15 [makeInclude:.include] [makeAngleString:<bsd.own.mk>]
   16 [makeInclude:.include] [makeString:"local.mk"]
   17 [makeInclude:.-include] [makeString:"optional.mk"]
   18 [makeInclude:.sinclude] [makeString:"silent.mk"]
@@ -71,3 +71,7 @@
   71 [makeVariable:UID] [makeAssignOp:!!=][makeValue: id -u]
   72 [makeVariable:DATE] [makeAssignOp:?!=][makeValue: date]
   73 [makeVariable:MORE][makeAssignOp:+!!=][makeValue:uname]
+  74 
+  75 [makeBSDConditional:.if] [makeBSDExpr:(][makeRef:${VALUE}][makeBSDExpr: < 0)||(][makeRef:${VALUE}][makeBSDExpr:>0)]
+  76 [makeVariable:NONZERO] [makeAssignOp:=][makeValue: yes]
+  77 [makeBSDConditional:.endif]

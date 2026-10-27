@@ -71,3 +71,7 @@ ${PROG}: ${OBJS}
 UID !!= id -u
 DATE ?!= date
 MORE+!!=uname
+
+.if (${VALUE} < 0)||(${VALUE}>0)
+NONZERO = yes
+.endif

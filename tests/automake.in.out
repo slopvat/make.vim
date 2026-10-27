@@ -48,3 +48,5 @@
   48 [makeTarget:.c.o][makeRuleOp::]
   49 [makeRecipe:	][makeConfig:@RULE_CC@]
   50 [makeRecipe:	][makeConfig:@ECHO_CC@][makeRef:$(CC)][makeRecipe: -c ][makeRef:$<]
+  51 
+  52 [makeVariable:VPATH] [makeAssignOp:=][makeValue: .:][makeConfig:@srcdir@]
