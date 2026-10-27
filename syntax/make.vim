@@ -55,12 +55,16 @@ unlet s:open s:close s:depth
 " A variable reference with up to six levels of nesting.
 let s:ref = '\$\%((' . s:balanced['('] . ')'
   \ . '\|{' . s:balanced['{'] . '}\|[^({]\)'
+" Assignment operators, including GNU Make's "::=" and ":::=" and OpenBSD's
+" combinations with "!" like "?!=" and "+!!=" and ":sh=". OpenBSD also
+" accepts "+:=" and "?:=", but other makes only treat the character before
+" "=" as part of the operator, and names like "libc++" commonly end in "+".
+let s:op = '\%(:sh\|:\{1,3}\|[+?]\=!\{,2}\|!\{1,2}?\)='
 " The name of a variable being assigned. "+", "?" and "!" are allowed in
-" names, but not right before "=" where they're part of the operator.
-let s:var = '\%([^[:space:]:#=$+?!]\|[+?!]\%(!\{,2}=\)\@!\|' . s:ref . '\)\+'
-" Assignment operators, including OpenBSD's combinations like "?!=" and
-" "+!!=". The operator may be on a continuation line after the name.
-let s:op = '\%(:::\|::\|[+?]\=!!\=\|[:+?]\)\=='
+" names, but not where an operator starts. The operator may be on a
+" continuation line after the name.
+let s:var = '\%([^[:space:]:#=$+?!]\|\%(' . s:op . '\)\@![+?!]\|' . s:ref
+  \ . '\)\+'
 let s:assign = '\%(\s\|\\\n\)*' . s:op
 " The targets of a rule, which may continue onto other lines, and the rule
 " operator that follows them. Quotes aren't allowed outside of references

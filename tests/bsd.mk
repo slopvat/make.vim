@@ -75,3 +75,6 @@ MORE+!!=uname
 .if (${VALUE} < 0)||(${VALUE}>0)
 NONZERO = yes
 .endif
+DIR !?= mktemp -d
+OS :sh= uname
+SUBDIR_DEPEND_libc++:= libcxxrt

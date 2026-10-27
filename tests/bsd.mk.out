@@ -75,3 +75,6 @@
   75 [makeBSDConditional:.if] [makeBSDExpr:(][makeRef:${VALUE}][makeBSDExpr: < 0)||(][makeRef:${VALUE}][makeBSDExpr:>0)]
   76 [makeVariable:NONZERO] [makeAssignOp:=][makeValue: yes]
   77 [makeBSDConditional:.endif]
+  78 [makeVariable:DIR] [makeAssignOp:!?=][makeValue: mktemp -d]
+  79 [makeVariable:OS] [makeAssignOp::sh=][makeValue: uname]
+  80 [makeVariable:SUBDIR_DEPEND_libc++][makeAssignOp::=][makeValue: libcxxrt]
