@@ -42,10 +42,20 @@ syn iskeyword @,48-57,_,192-255,-,.,/
 " earlier on the line, Vim searches for the next match from where that item
 " ended, and a pattern starting with "^" can't match there.
 let s:bol = '^\%(\%(@\h\w*@\)\+\s*\|\s*\zs\)'
-" A variable reference with up to three levels of nesting, which may continue
-" onto other lines.
-let s:ref = '\$\%((\%([^()]\|\\\n\|(\%([^()]\|\\\n\|([^()]*)\)*)\)*)'
-  \ . '\|{\%([^{}]\|\\\n\|{\%([^{}]\|\\\n\|{[^{}]*}\)*}\)*}\|[^({]\)'
+" Text with up to five levels of balanced parentheses or braces, which may
+" continue onto other lines, keyed by the opening character.
+let s:balanced = {}
+for [s:open, s:close] in [['(', ')'], ['{', '}']]
+  let s:balanced[s:open] = '[^' . s:open . s:close . ']*'
+  for s:depth in range(4)
+    let s:balanced[s:open] = '\%([^' . s:open . s:close . ']\|\\\n\|'
+      \ . s:open . s:balanced[s:open] . s:close . '\)*'
+  endfor
+endfor
+unlet s:open s:close s:depth
+" A variable reference with up to six levels of nesting.
+let s:ref = '\$\%((' . s:balanced['('] . ')'
+  \ . '\|{' . s:balanced['{'] . '}\|[^({]\)'
 " The name of a variable being assigned. "+", "?" and "!" are allowed in
 " names, but not right before "=" where they're part of the operator.
 let s:var = '\%([^[:space:]:#=$+?!]\|[+?!]=\@!\|' . s:ref . '\)\+'
@@ -205,16 +215,11 @@ exe 'syn match makeCallName contained'
 " checked for up to six levels of nesting. These are defined after the other
 " references so they take priority.
 for [s:open, s:close] in [['(', ')'], ['{', '}']]
-  let s:balanced = '[^' . s:open . s:close . ']*'
-  for s:depth in range(5)
-    let s:balanced = '\%([^' . s:open . s:close . ']\|\\\n\|'
-      \ . s:open . s:balanced . s:close . '\)*'
-  endfor
   exe 'syn region makeRefError'
-    \ 'start=/\%#=1\$' . s:open . '\%(' . s:balanced . s:close . '\)\@!/'
-    \ 'skip=/\%#=1\\$/ end=/\%#=1$/'
+    \ 'start=/\%#=1\$' . s:open . '\%(' . s:balanced[s:open] . s:close
+    \ . '\)\@!/ skip=/\%#=1\\$/ end=/\%#=1$/'
 endfor
-unlet s:open s:close s:balanced s:depth
+unlet s:open s:close
 
 " Shell code -----------------------------------------------------------------
 
@@ -238,8 +243,13 @@ syn match makeShParenSeparator contained transparent /\%#=1[()}]/
   \ nextgroup=@makeShCommand skipwhite
 " The start of a command after "`", "$$(" or the operator of an assignment.
 " It also matches after "(" and "=" elsewhere in them, e.g. "--opt=if",
-" which is rarely followed by a keyword.
-syn match makeShCommandStart contained transparent /\%#=1[`(=]\@1<=/
+" which is rarely followed by a keyword. When the "nextgroup" of a
+" zero-width match like this one doesn't match, Vim doesn't look for other
+" items at the same column, so it only matches before white space, a
+" backslash at the end of a line or a lowercase letter, which nothing else
+" starts with.
+syn match makeShCommandStart contained transparent
+  \ /\%#=1[`(=]\@1<=\ze\%([ \t]\|\\$\|\l\)/
   \ nextgroup=@makeShCommand skipwhite
 syn match makeShCommandLineCont contained /\%#=1\\$/
   \ nextgroup=@makeShCommand skipwhite skipnl
@@ -247,7 +257,8 @@ syn match makeShRefLineCont contained /\%#=1\\\%([)}][ \t]*\\\)\@40<=$/
   \ nextgroup=@makeShCommand skipwhite skipnl
 syn keyword makeShConditional contained if then else elif fi esac
   \ nextgroup=@makeShCommand skipwhite
-syn keyword makeShConditional contained case nextgroup=makeShCaseWord skipwhite
+syn keyword makeShConditional contained case
+  \ nextgroup=makeShCaseWord skipwhite
 syn keyword makeShRepeat contained while until do done
   \ nextgroup=@makeShCommand skipwhite
 syn keyword makeShRepeat contained for nextgroup=makeShForName skipwhite
@@ -601,7 +612,7 @@ unlet s:group
 let b:current_syntax = "make"
 
 let &cpo = s:cpo_save
-unlet s:cpo_save s:autoconf s:bol s:ref s:var s:assign s:targets s:ruleop
-  \ s:inrule
+unlet s:cpo_save s:autoconf s:balanced s:bol s:ref s:var s:assign s:targets
+  \ s:ruleop s:inrule
   \ s:misindented s:functions s:pattern_functions s:deferred_functions
   \ s:special_targets

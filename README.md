@@ -132,6 +132,8 @@ Limitations
   `$$(sort ...)` are command substitutions.
 - Inside a `define`, `$$(...)` is still a command substitution when it's in
   a `$(shell ...)` call or the word after `case`.
+- Inside a `define`, a reference that continues onto the next line without a
+  backslash is highlighted as an error, though Make accepts it there.
 - A backslash at the end of a line always continues the line, even when it's
   escaped by another backslash.
 - A continuation line is highlighted as the start of a command when the
@@ -141,7 +143,7 @@ Limitations
   the start of a comment, but this syntax file does.
 - Autoconf's `@if NAME` and `@endif NAME` lines end a variable's value when
   they interrupt one that's continued onto other lines.
-- References nested more than three levels deep in the names of targets and
+- References nested more than six levels deep in the names of targets and
   variables keep a line from being recognized as a rule or assignment.
 
 Development

@@ -191,3 +191,10 @@ AFTER_REGEX_VALUE = still an assignment
 first-target \
 second-target: dep
 	@echo $@
+NO_SPACE=$(CC) ${CC}
+OPTION = -DOFFSET=$(if $(OFFSET),$(OFFSET),0)
+BACKTICK_VALUE = `$(am__cd) sub && pwd`; \
+	if test -d x; then d=; else d=x; fi
+GROUP_VALUE = `{ for f in *; do echo $$f; done; }`
+$(addprefix $(obj)/, $(sort $(filter zImage.%, $(image-y)))): vmlinux
+	@echo $@
