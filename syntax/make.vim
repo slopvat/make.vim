@@ -443,8 +443,9 @@ let s:template =<< trim END
     \makeConfigIf,makeConditional,makeBSDConditional
 
   " Rules are defined before the other kinds of lines, which take priority
-  " when they start at the same place.
-  syn match makeTarget{S} {CONTAINED} /\%#=1{BOL}{TARGETS}\ze{RULEOP}/
+  " when they start at the same place. White space before the rule operator
+  " isn't part of the targets.
+  syn match makeTarget{S} {CONTAINED} /\%#=1{BOL}{TARGETS}\s\@1<!\ze{RULEOP}/
     \ contains=makeSpecialTarget,makePattern,@makeExpansions,@makeLineEnd
     \{ESCAPED}
     \ nextgroup=makeRuleBody{S} skipwhite
@@ -460,8 +461,8 @@ let s:template =<< trim END
 
   " Target-specific variable assignments, e.g. "prog: CFLAGS += -g". They
   " don't start a recipe.
-  syn match makeTarget{S} {CONTAINED} /\%#=1{BOL}{TARGETS}\ze{RULEOP}\s*
-    \\%(\%(export\|override\|private\|unexport\)\s\+\)*{VAR}{ASSIGN}/
+  syn match makeTarget{S} {CONTAINED} /\%#=1{BOL}{TARGETS}\s\@1<!\ze{RULEOP}
+    \\s*\%(\%(export\|override\|private\|unexport\)\s\+\)*{VAR}{ASSIGN}/
     \ contains=makeSpecialTarget,makePattern,@makeExpansions,@makeLineEnd
     \{ESCAPED}
     \ nextgroup=makeTargetVarOp{S} skipwhite

@@ -220,3 +220,5 @@ $$(error found $$(count) unwanted occurrences of $(1): \
 	$$(list))
 endif
 endef
+.PHONY : spaced-target
+spaced-target : CFLAGS += -g

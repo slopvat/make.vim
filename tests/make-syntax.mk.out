@@ -77,7 +77,7 @@
   77 [makeTarget:lib.a][makeRuleOp:::][makeRuleBody: a.o]
   78 [makeTarget:lib.a][makeRuleOp:::][makeRuleBody: b.o]
   79 
-  80 [makeTarget:grouped1 grouped2 ][makeRuleOp:&:][makeRuleBody: source]
+  80 [makeTarget:grouped1 grouped2] [makeRuleOp:&:][makeRuleBody: source]
   81 [makeRecipe:	touch grouped1 grouped2]
   82 
   83 [makeTarget:inline][makeRuleOp::][makeRuleBody: dep ][makeRuleOp:;][makeInlineRecipe: echo ][makeShDQ:"inline recipe"][makeInlineRecipe: ][makeShComment:# shell comment]
@@ -220,3 +220,5 @@
  220 [makeDefineBody:	][makeRef:$$(][makeEscRef:list][makeRef:))]
  221 [makeConditional:endif]
  222 [makeDefine:endef]
+ 223 [makeSpecialTarget:.PHONY] [makeRuleOp::][makeRuleBody: spaced-target]
+ 224 [makeTarget:spaced-target] [makeTargetVarOp::] [makePrefixedVariable:CFLAGS] [makeAssignOp:+=][makeValue: -g]
