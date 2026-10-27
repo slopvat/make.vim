@@ -55,24 +55,35 @@ unlet s:open s:close s:depth
 " A variable reference with up to six levels of nesting.
 let s:ref = '\$\%((' . s:balanced['('] . ')'
   \ . '\|{' . s:balanced['{'] . '}\|[^({]\)'
+" The same in the body of a "define", where references escaped with "$$" are
+" included and "$$" isn't otherwise allowed before "(" or "{", so a ":" or
+" "=" in a deferred function call isn't mistaken for the end of a target or
+" variable name. It's slower, so it's only used there.
+let s:refDef = '\%(\$\$\=\%((' . s:balanced['('] . ')'
+  \ . '\|{' . s:balanced['{'] . '}\)\|\$[^({$]\|\$\$[({]\@!\)'
 " Assignment operators, including GNU Make's "::=" and ":::=" and OpenBSD's
 " combinations like "?!=", "+!!=", "+:=" and ":sh=". Other makes only treat
 " the character before "=" as part of the operator, so "+:=" and "?:=" aren't
 " recognized after another "+" or "?", which keeps names like "libc++" in
 " "libc++:=" intact.
 let s:op = '\%(:sh\|:\{1,3}\|[+?]\=!\{,2}\|!\{1,2}?\|[+?]\@1<![+?]:\)='
-" The name of a variable being assigned. "+", "?" and "!" are allowed in
-" names, but not where an operator starts. The operator may be on a
-" continuation line after the name.
-let s:var = '\%([^[:space:]:#=$+?!]\|\%(' . s:op . '\)\@![+?!]\|' . s:ref
-  \ . '\)\+'
+" The name of a variable being assigned, and the targets of a rule, which
+" may continue onto other lines, in s:var and s:targets, and their versions
+" for "define" bodies in s:varDef and s:targetsDef. "+", "?" and "!" are
+" allowed in variable names, but not where an operator starts. Quotes
+" aren't allowed in targets outside of references so that a line like "echo
+" 'Targets:'" in a canned recipe isn't taken for a rule.
+for s:suffix in ['', 'Def']
+  let s:var{s:suffix} = '\%([^[:space:]:#=$+?!]\|\%(' . s:op . '\)\@![+?!]\|'
+    \ . s:ref{s:suffix} . '\)\+'
+  let s:targets{s:suffix} = '\%([^[:space:]:#=$&''"]\|&:\@!\|'
+    \ . s:ref{s:suffix} . '\)\%([^:#=$&''"]\|\\\n\|&:\@!\|'
+    \ . s:ref{s:suffix} . '\)*'
+endfor
+unlet s:suffix
+" The operator may be on a continuation line after the name.
 let s:assign = '\%(\s\|\\\n\)*' . s:op
-" The targets of a rule, which may continue onto other lines, and the rule
-" operator that follows them. Quotes aren't allowed outside of references
-" so that a line like "echo 'Targets:'" in a canned recipe isn't taken for
-" a rule.
-let s:targets = '\%([^[:space:]:#=$&''"]\|&:\@!\|' . s:ref . '\)'
-  \ . '\%([^:#=$&''"]\|\\\n\|&:\@!\|' . s:ref . '\)*'
+" The operator that follows a rule's targets.
 let s:ruleop = '\s*&\=::\=[:=]\@!'
 " Whether this is a file that configure processes, e.g. Makefile.in.
 let s:autoconf = expand('%:e') =~# '^\%(in\|am\)$'
@@ -121,10 +132,10 @@ let s:special_targets = join([
   \ 'JOIN', 'LIBS', 'LOW_RESOLUTION_TIME', 'MADE', 'MAIN', 'MAKE',
   \ 'MAKEFLAGS', 'META', 'MFLAGS', 'NOMETA', 'NOMETA_CMP', 'NOPATH',
   \ 'NOREADONLY', 'NOTINTERMEDIATE', 'NOTMAIN', 'NOTPARALLEL', 'NO_PARALLEL',
-  \ 'NULL', 'OBJDIR', 'ONESHELL', 'OPTIONAL', 'ORDER', 'PATH\%(\.\S*\)\=',
-  \ 'PHONY', 'POSIX', 'PRECIOUS', 'READONLY', 'SCCS_GET', 'SECONDARY',
-  \ 'SECONDEXPANSION', 'SHELL', 'SILENT', 'STALE', 'SUFFIXES', 'USE',
-  \ 'USEBEFORE', 'WAIT'
+  \ 'NULL', 'OBJDIR', 'ONESHELL', 'OPTIONAL', 'ORDER',
+  \ 'PATH\%(\.[^[:space:]:]*\)\=', 'PHONY', 'POSIX', 'PRECIOUS', 'READONLY',
+  \ 'SCCS_GET', 'SECONDARY', 'SECONDEXPANSION', 'SHELL', 'SILENT', 'STALE',
+  \ 'SUFFIXES', 'USE', 'USEBEFORE', 'WAIT'
   \ ], '\|')
 
 " Comments, escapes and substitutions ----------------------------------------
@@ -213,11 +224,15 @@ for [s:open, s:close, s:nest] in [['(', ')', 'makeParens'],
     \ s:end s:contains . ',makePattern'
   exe 'syn region makeShellCall transparent matchgroup=makeRef'
     \ 'start=/\%#=1\$' . s:open . '\zeshell[ \t]/' s:end
-    \ 'contains=makeCallName,@makeShell,' . s:nest
+    \ 'contains=makeShellCallName,@makeShell,' . s:nest
 endfor
 unlet s:open s:close s:nest s:end s:contains
 exe 'syn match makeCallName contained'
   \ '/\%#=1\%(\$[({]\)\@2<=\%(' . s:functions . '\)[ \t]\@=/'
+" The name in "$(shell ...)", after which a command starts.
+syn match makeShellCallName contained
+  \ /\%#=1shell\%(\$[({]shell\)\@7<=[ \t]\@=/
+  \ nextgroup=@makeShCommand skipwhite
 
 " References that aren't closed by the end of their logical line, which is
 " checked for up to six levels of nesting. These are defined after the other
@@ -480,12 +495,13 @@ let s:template =<< trim END
     \makePrefixedVariable{S},makeDefineAfterModifier skipwhite
 END
 
-let s:values = {'BOL': s:bol, 'VAR': s:var, 'OP': s:op, 'ASSIGN': s:assign,
-  \ 'TARGETS': s:targets, 'RULEOP': s:ruleop, 'INRULE': s:inrule,
-  \ 'MISINDENTED': s:misindented}
+let s:values = {'BOL': s:bol, 'OP': s:op, 'ASSIGN': s:assign,
+  \ 'RULEOP': s:ruleop, 'INRULE': s:inrule, 'MISINDENTED': s:misindented}
 for [s:values.S, s:values.CONTAINED, s:values.CMDSUB, s:values.ESCAPED] in
   \ [['', '', 'makeShCmdSub,makeShArith', ''],
   \  ['Def', 'contained', '@makeEscExpansions', ',@makeEscExpansions']]
+  let s:values.VAR = s:var{s:values.S}
+  let s:values.TARGETS = s:targets{s:values.S}
   let s:command = ''
   for s:line in s:template + ['']
     if s:line =~# '^\s*\\'
@@ -612,6 +628,7 @@ hi def link makeShDQEscape Special
 hi def link makeShEscape Special
 hi def link makeShIn Statement
 hi def link makeShParam PreProc
+hi def link makeShellCallName makeCallName
 hi def link makeShPrefixKeyword makeShConditional
 hi def link makeShRefLineCont makeLineCont
 hi def link makeShRepeat Repeat
@@ -636,6 +653,6 @@ unlet s:group
 let b:current_syntax = "make"
 
 let &cpo = s:cpo_save
-unlet s:cpo_save s:autoconf s:balanced s:bol s:ref s:var s:op s:assign
-  \ s:targets s:ruleop s:inrule s:misindented s:functions s:pattern_functions
-  \ s:deferred_functions s:special_targets
+unlet s:cpo_save s:autoconf s:balanced s:bol s:ref s:refDef s:var s:varDef
+  \ s:op s:assign s:targets s:targetsDef s:ruleop s:inrule s:misindented
+  \ s:functions s:pattern_functions s:deferred_functions s:special_targets

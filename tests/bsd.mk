@@ -80,3 +80,5 @@ OS :sh= uname
 SUBDIR_DEPEND_libc++:= libcxxrt
 RTTEST_TARGETS+:=rttest${n}
 OPTIONAL?:=default
+.PATH.c:${DISTDIR} \
+	${DISTDIR}/src

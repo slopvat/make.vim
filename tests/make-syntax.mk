@@ -213,3 +213,10 @@ endef
 CONTINUED_NAME-$(CONFIG_X) \
 		:= -DFOO \
 		-DBAR
+SHELL_IF = $(shell if test -d sub; then echo sub; fi)
+define CHECK_EXPORTS
+ifneq (0,$$(count))
+$$(error found $$(count) unwanted occurrences of $(1): \
+	$$(list))
+endif
+endef
