@@ -224,3 +224,15 @@ endef
 spaced-target : CFLAGS += -g
 load: ; @echo loading
 vpath %.h include:../include
+
+# References in a "define" can continue onto later lines.
+define HELP_LINES
+	$(foreach cfg,$(CONFIGS),
+	  printf "%s\n" $(cfg);)
+	echo done
+endef
+define NESTED_FOREACH
+$(foreach a,$(1),$(foreach b,$(2),
+target := $(a)$(b)
+))
+endef

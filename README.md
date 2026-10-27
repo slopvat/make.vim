@@ -132,8 +132,10 @@ Limitations
   `$$(sort ...)` are command substitutions.
 - Inside a `define`, `$$(...)` is still a command substitution when it's in
   a `$(shell ...)` call or the word after `case`.
-- Inside a `define`, a reference that continues onto the next line without a
-  backslash is highlighted as an error, though Make accepts it there.
+- Unterminated references aren't flagged inside a `define`, where a
+  reference can continue onto later lines: telling whether one does would
+  take a pattern that looks at later lines, and Vim doesn't highlight a line
+  again when a later one changes.
 - A backslash at the end of a line always continues the line, even when it's
   escaped by another backslash.
 - A continuation line is highlighted as the start of a command when the
@@ -175,8 +177,20 @@ Syntax items in this file follow a few rules discovered while writing it:
   be used to start the contents of a region where a command can start.
 - Vim only looks for keywords after a character that isn't part of a
   word, so with `-` in `iskeyword`, `-if` doesn't contain the keyword `if`.
-- At every column, Vim checks every pattern against what the current item
-  can contain, so each pattern slows down highlighting a little even where
-  it can't match. A match in a pending `nextgroup` is searched for in the
-  rest of the line, so keywords are much faster than matches after
-  operators.
+- Each time Vim looks for the next match, it checks every pattern against
+  what the current item can contain by walking the item's `contains` list
+  and, recursively, the clusters in it. Each pattern slows down highlighting
+  a little everywhere, and nested clusters slowed it down a lot, so the
+  syntax file defines items with `Syn`, which replaces references to
+  clusters with the items they stand for.
+- A match in a pending `nextgroup` is searched for in the rest of the line,
+  so keywords are much faster than matches after operators.
+- An end pattern that matches the end of a line makes the item containing
+  the region continue onto the next line unless the end pattern is preceded
+  by `excludenl`.
+- Patterns that fail by backtracking a character at a time, like a name
+  that isn't followed by an assignment operator, fail immediately when the
+  name is atomic (`\@>`).
+- Compiling a regular expression in Vim script, e.g. for `=~#` or
+  `substitute()`, is slow, so the template isn't processed a line at a time
+  with them.
