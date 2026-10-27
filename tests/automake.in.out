@@ -52,3 +52,6 @@
   52 [makeVariable:VPATH] [makeAssignOp:=][makeValue: .:][makeConfig:@srcdir@]
   53 [makeTarget:check][makeRuleOp::]
   54 [makeRecipe:	][makeConfig:@LIBPATH_VAR@][makeRecipe:=][makeShDQ:"../lib/.libs:][makeEscDollar:$$][makeConfig:@LIBPATH_VAR@][makeShDQ:"][makeRecipe: ./test ][makeShDQ:"][makeShVar:$$@][makeShDQ:"]
+  55 [makeTarget:.c.o][makeRuleOp::]
+  56 [makeConfig:@am__fastdepCC_TRUE@][makeRecipe:	][makeShConditional:if][makeRecipe: ][makeRef:$(COMPILE)][makeRecipe: -c ][makeRef:$<][makeRecipe:; ][makeShCommandLineCont:\]
+  57 [makeConfig:@am__fastdepCC_TRUE@][makeRecipe:	][makeShConditional:then][makeRecipe: mv -f a b; ][makeShConditional:else][makeRecipe: rm -f a; exit 1; ][makeShConditional:fi]

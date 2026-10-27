@@ -222,3 +222,5 @@ endif
 endef
 .PHONY : spaced-target
 spaced-target : CFLAGS += -g
+load: ; @echo loading
+vpath %.h include:../include

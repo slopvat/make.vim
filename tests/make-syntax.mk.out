@@ -126,7 +126,7 @@
  126 [makeModifier:export] [makePrefixedVariable:PATH] [makeAssignOp:=][makeValue: /bin]
  127 [makeModifier:unexport] [makeDirArgs:LDFLAGS]
  128 [makeModifier:override] [makePrefixedVariable:CFLAGS] [makeAssignOp:+=][makeValue: -I.]
- 129 [makeModifier:override] [makeStatement:undefine] [makeDirArgs:OLD]
+ 129 [makeModifier:override] [makeStatementAfterModifier:undefine] [makeDirArgs:OLD]
  130 [makeModifier:private] [makePrefixedVariable:SECRET] [makeAssignOp:=][makeValue: 1]
  131 [makeStatement:undefine] [makeDirArgs:STALE]
  132 [makeStatement:load] [makeDirArgs:./ext.so]
@@ -200,9 +200,9 @@
  200 [makeRecipe:	][makeRecipePrefix:@][makeRecipe:echo ][makeRef:$@]
  201 
  202 [makeComment:# Directive names are only directives when followed by white space.]
- 203 [makeInclude:include][makeRuleOp::][makeRuleBody: dep]
+ 203 [makeTarget:include][makeRuleOp::][makeRuleBody: dep]
  204 [makeRecipe:	][makeRecipePrefix:@][makeRecipe:echo the include target]
- 205 [makeInclude:include] [makeAssignOp:=][makeValue: not a directive]
+ 205 [makeVariable:include] [makeAssignOp:=][makeValue: not a directive]
  206 
  207 [makeDefine:define] [makeDefineName:HELP]
  208 [makeDefineBody:echo '  hdimage   - Build a disk image (also accept:)']
@@ -222,3 +222,5 @@
  222 [makeDefine:endef]
  223 [makeSpecialTarget:.PHONY] [makeRuleOp::][makeRuleBody: spaced-target]
  224 [makeTarget:spaced-target] [makeTargetVarOp::] [makePrefixedVariable:CFLAGS] [makeAssignOp:+=][makeValue: -g]
+ 225 [makeTarget:load][makeRuleOp::][makeRuleBody: ][makeRuleOp:;][makeInlineRecipe: @echo loading]
+ 226 [makeStatement:vpath] [makePattern:%][makeDirArgs:.h include:../include]

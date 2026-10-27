@@ -52,3 +52,6 @@ tic$x: $(DEPS_TIC)
 VPATH = .:@srcdir@
 check:
 	@LIBPATH_VAR@="../lib/.libs:$$@LIBPATH_VAR@" ./test "$$@"
+.c.o:
+@am__fastdepCC_TRUE@	if $(COMPILE) -c $<; \
+@am__fastdepCC_TRUE@	then mv -f a b; else rm -f a; exit 1; fi

@@ -274,8 +274,12 @@ syn match makeShParenSeparator contained transparent /\%#=1[()}]/
 syn match makeShCommandStart contained transparent
   \ /\%#=1[`(=]\@1<=\ze\%([ \t]\|\\$\|\l\)/
   \ nextgroup=@makeShCommand skipwhite
-syn match makeShCommandLineCont contained /\%#=1\\$/
-  \ nextgroup=@makeShCommand skipwhite skipnl
+" In Autoconf files, a continuation includes substitutions at the start of
+" the next line, like "@am__fastdepCC_TRUE@", so that the command after them
+" can start with a keyword.
+exe 'syn match makeShCommandLineCont contained /\%#=1\\'
+  \ . (s:autoconf ? '\%(\n\%(@\h\w*@\)\+\|$\)' : '$') . '/'
+  \ 'contains=makeConfig nextgroup=@makeShCommand skipwhite skipnl'
 syn match makeShRefLineCont contained /\%#=1\\\%([)}][ \t]*\\\)\@40<=$/
   \ nextgroup=@makeShCommand skipwhite skipnl
 syn keyword makeShConditional contained if then else elif fi esac
@@ -495,7 +499,7 @@ let s:template =<< trim END
     \ contains=makeShCommandStart,@makeShTop{S},makeDeferredCall
 
   syn keyword makeModifier{S} {CONTAINED} export unexport override private
-    \ nextgroup=makeModifier{S},makeStatement,makeDirArgs,
+    \ nextgroup=makeModifier{S},makeStatementAfterModifier,makeDirArgs,
     \makePrefixedVariable{S},makeDefineAfterModifier skipwhite
 END
 
@@ -526,12 +530,20 @@ syn keyword makeConditional ifeq ifneq ifdef ifndef
 syn keyword makeConditional else nextgroup=makeConditional skipwhite
 syn keyword makeConditional endif
 " GNU Make only treats these words as directives when they're followed by
-" white space, so "include:" starts a rule and "include = x" is an
-" assignment.
-syn keyword makeInclude include -include sinclude
-  \ nextgroup=makeRuleBody,makeValue,makeDirArgs skipwhite
-syn keyword makeStatement vpath undefine load -load
-  \ nextgroup=makeRuleBody,makeValue,makeDirArgs skipwhite
+" white space or the end of the line and not by an assignment operator, so
+" "include:" starts a rule and "include = x" is an assignment. They're
+" matches rather than keywords for that reason, and they're anchored to the
+" start of the line since a match that can start anywhere makes Vim search
+" every line for it. "undefine" can also follow keywords like "override".
+let s:directive_end = '\ze\%($\|\s\+\%(' . s:op . '\)\@!\)/'
+exe 'syn match makeInclude /\%#=1' . s:bol . '\%(-\=include\|sinclude\)'
+  \ . s:directive_end 'contains=makeConfig nextgroup=makeDirArgs skipwhite'
+exe 'syn match makeStatement /\%#=1' . s:bol
+  \ . '\%(vpath\|undefine\|-\=load\)' . s:directive_end
+  \ 'contains=makeConfig nextgroup=makeDirArgs skipwhite'
+unlet s:directive_end
+syn keyword makeStatementAfterModifier contained undefine
+  \ nextgroup=makeDirArgs skipwhite
 
 " BSD directives, which may have whitespace after the ".". They're defined
 " after rules so a line like '.if "a:b"' isn't taken for one.
@@ -640,6 +652,7 @@ hi def link makeShSQ String
 hi def link makeShVar PreProc
 hi def link makeSpecialTarget Statement
 hi def link makeStatement Statement
+hi def link makeStatementAfterModifier makeStatement
 hi def link makeString String
 hi def link makeTarget Function
 hi def link makeTargetVarOp makeRuleOp
