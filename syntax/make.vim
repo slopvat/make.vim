@@ -20,7 +20,11 @@
 " order of magnitude slower. Patterns also start with a literal character or
 " "^" whenever possible: the backtracking engine skips ahead to the first
 " occurrence of a leading literal and only tries patterns starting with "^" at
-" the start of a line, but it tries a leading lookbehind at every column.
+" the start of a line, but it tries a leading lookbehind at every column. For
+" the same reason, end patterns that look for the end of a line or a comment
+" start with ".*\zs" or "[^#]*\zs", which find it in one attempt. Runs of
+" ordinary characters are matched with "\+", which the engine handles much
+" faster than an alternation repeated for each character.
 
 if exists("b:current_syntax")
   finish
@@ -42,13 +46,15 @@ syn iskeyword @,48-57,_,192-255,-,.,/
 " ended, and a pattern starting with "^" can't match there.
 let s:bol = '^\%(\%(@\h\w*@\)\+\s*\|\s*\zs\)'
 " Text with up to five levels of balanced parentheses or braces, which may
-" continue onto other lines, keyed by the opening character.
+" continue onto other lines, keyed by the opening character. The runs of
+" ordinary characters are atomic ("\@>") so that a reference that isn't
+" closed doesn't make the engine try every way of splitting them up.
 let s:balanced = {}
 for [s:open, s:close] in [['(', ')'], ['{', '}']]
   let s:balanced[s:open] = '[^' . s:open . s:close . ']*'
   for s:depth in range(4)
-    let s:balanced[s:open] = '\%([^' . s:open . s:close . ']\|\\\n\|'
-      \ . s:open . s:balanced[s:open] . s:close . '\)*'
+    let s:balanced[s:open] = '\%(\%([^' . s:open . s:close . '\\]\+\)\@>'
+      \ . '\|\\\n\|\\\|' . s:open . s:balanced[s:open] . s:close . '\)*'
   endfor
 endfor
 unlet s:open s:close s:depth
@@ -80,9 +86,9 @@ let s:op = '\%(:sh\|:\{1,3}\|[+?]\=!\{,2}\|!\{1,2}?\|[+?]\@1<![+?]:\)='
 " that out made these patterns, which are tried at the start of nearly every
 " line, the slowest ones in the file.
 for s:suffix in ['', 'Def']
-  let s:var{s:suffix} = '\%(\%([^[:space:]:#=$+?!]\|\%(' . s:op . '\)\@![+?!]'
-    \ . '\|' . s:ref{s:suffix} . '\)\+\)\@>'
-  let s:target = '\%([^[:space:]:#=$&''"\\]\|\\\n\@!\|&:\@!\|'
+  let s:var{s:suffix} = '\%(\%([^[:space:]:#=$+?!]\+\|\%(' . s:op
+    \ . '\)\@![+?!]\|' . s:ref{s:suffix} . '\)\+\)\@>'
+  let s:target = '\%([^[:space:]:#=$&''"\\]\+\|\\\n\@!\|&:\@!\|'
     \ . s:ref{s:suffix} . '\)'
   let s:targets{s:suffix} = '\%(' . s:target . '\%(' . s:target
     \ . '\|\%(\s\|\\\n\)\+\%([^[:space:]:#=&''"\\]\|\\\n\@!\|&:\@!\)\@='
@@ -202,7 +208,7 @@ command! -buffer -nargs=+ Syn exe 'syn' s:Expand(<q-args>)
 
 syn keyword makeTodo contained TODO FIXME XXX
 " A comment, which a trailing backslash continues onto the next line.
-Syn region makeComment start=/\%#=1#/ skip=/\%#=1\\$/ end=/\%#=1$/
+Syn region makeComment start=/\%#=1#/ skip=/\%#=1\\$/ end=/\%#=1.*\zs$/
   \ keepend contains=makeTodo,@makeLineEnd,@Spell
 " A backslash that continues a line. One that's followed by white space,
 " "makeContError", is defined with the shell code so it takes priority over
@@ -298,7 +304,8 @@ Syn match makeShellCallName contained
 " references so it takes priority.
 exe 'syn region makeRefError'
   \ 'start=/\%#=1\$\%((\%(' . s:balanced['('] . ')\)\@!\|{\%('
-  \ . s:balanced['{'] . '}\)\@!\)/ skip=/\%#=1\\$/ excludenl end=/\%#=1$/'
+  \ . s:balanced['{'] . '}\)\@!\)/ skip=/\%#=1\\$/'
+  \ 'excludenl end=/\%#=1.*\zs$/'
 
 " Shell code -----------------------------------------------------------------
 
@@ -324,9 +331,10 @@ Syn match makeShParenSeparator contained transparent /\%#=1[()}]/
 " zero-width match like this one doesn't match, Vim doesn't look for other
 " items at the same column, so it only matches before white space, a
 " backslash at the end of a line or a lowercase letter, which nothing else
-" starts with.
+" starts with. The character before it is leading context ("lc=1") rather
+" than a lookbehind, which would be tried at every column.
 Syn match makeShCommandStart contained transparent
-  \ /\%#=1[`(=]\@1<=\ze\%([ \t]\|\\$\|\l\)/
+  \ /\%#=1[`(=]\ze\%([ \t]\|\\$\|\l\)/lc=1
   \ nextgroup=@makeShCommand skipwhite
 " In Autoconf files, a continuation includes substitutions at the start of
 " the next line, like "@am__fastdepCC_TRUE@", so that the command after them
@@ -431,7 +439,7 @@ exe 'syn match makeMisindented contained /\%#=1^' . s:misindented . '/'
 " regions with zero-width starts like these if they have a "nextgroup".
 Syn region makeDirArgs contained start=/\%#=1\ze[^[:space:]#]/
   \ skip=/\%#=1\\\%([\\#]\|$\)\|\$\%(\$\_$\@!\|[({][^)}#]*#\)/
-  \ end=/\%#=1\ze#\|$/ keepend
+  \ end=/\%#=1[^#]*\zs\%(\ze#\|$\)/ keepend
   \ contains=@makeExpansions,@makeEscExpansions,@makeLineEnd,makePattern,
   \makeString,makeAngleString
 Syn region makeString contained start=/\%#=1"/ end=/\%#=1"/ oneline
@@ -478,7 +486,7 @@ let s:template =<< trim END
     \makeShVar,makeShParam{S},{CMDSUB},makeShBacktick{S}
 
   syn region makeRecipe{S} contained start=/\%#=1^\ze\%(@\h\w*@\)*\t/
-    \ skip=/\%#=1\\$/ end=/\%#=1$/ keepend
+    \ skip=/\%#=1\\$/ end=/\%#=1.*\zs$/ keepend
     \ contains=makeRecipeStart,@makeShTop{S},makeShComment
 
   " A rule's recipe continues until a line that isn't a recipe line,
@@ -498,13 +506,13 @@ let s:template =<< trim END
     \{ESCAPED}
     \ nextgroup=makeRuleBody{S},makeTargetVarOp{S} skipwhite
   syn region makeRuleBody{S} contained matchgroup=makeRuleOp
-    \ start=/\%#=1&\=::\=/ skip=/\%#=1\\$/ end=/\%#=1$/ keepend
+    \ start=/\%#=1&\=::\=/ skip=/\%#=1\\$/ end=/\%#=1.*\zs$/ keepend
     \ contains=makeSpecialTarget,makePattern,makeRuleOp,makeOrderOnly,
     \{EXPANSIONS},@makeEscExpansions,@makeLineEnd,makeComment,
     \makeInlineRecipe{S}
     \ nextgroup=makeRecipeBlock{S} skipnl
   syn region makeInlineRecipe{S} contained matchgroup=makeRuleOp
-    \ start=/\%#=1;/ skip=/\%#=1\\$/ end=/\%#=1$/ keepend
+    \ start=/\%#=1;/ skip=/\%#=1\\$/ end=/\%#=1.*\zs$/ keepend
     \ contains=@makeShTop{S},makeShComment
 
   " Target-specific variable assignments, e.g. "prog: CFLAGS += -g", which
@@ -536,7 +544,7 @@ let s:template =<< trim END
   syn region makeValue{S} contained matchgroup=makeAssignOp{S}
     \ start=/\%#=1\%(\\\n\s*\)\={OP}/
     \ skip=/\%#=1\\\%([\\#]\|$\)\|\$\%(\$\_$\@!\|[({][^)}#]*#\)/
-    \ end=/\%#=1\ze#\|$/ keepend
+    \ end=/\%#=1[^#]*\zs\%(\ze#\|$\)/ keepend
     \ contains=makeShCommandStart,@makeShTop{S},makeDeferredCall
 
   syn keyword makeModifier{S} {CONTAINED} export unexport override private
@@ -611,13 +619,13 @@ exe 'syn match makeStatement /\%#=1^\.\s*\%(' . join([
 
 Syn region makeBSDExpr contained start=/\%#=1\ze[^[:space:]#]/
   \ skip=/\%#=1\\\%([\\#]\|$\)\|\$\%(\$\_$\@!\|[({][^)}#]*#\)/
-  \ end=/\%#=1\ze#\|$/ keepend
+  \ end=/\%#=1[^#]*\zs\%(\ze#\|$\)/ keepend
   \ contains=@makeExpansions,@makeLineEnd,makeString,makeBSDFunction
 syn keyword makeBSDFunction contained defined make empty exists target
   \ commands
 Syn region makeBSDFor contained start=/\%#=1\ze[^[:space:]#]/
   \ skip=/\%#=1\\\%([\\#]\|$\)\|\$\%(\$\_$\@!\|[({][^)}#]*#\)/
-  \ end=/\%#=1\ze#\|$/ keepend
+  \ end=/\%#=1[^#]*\zs\%(\ze#\|$\)/ keepend
   \ contains=@makeExpansions,@makeLineEnd,makeBSDIn
 syn keyword makeBSDIn contained in
 
