@@ -50,3 +50,5 @@
   50 [makeRecipe:	][makeConfig:@ECHO_CC@][makeRef:$(CC)][makeRecipe: -c ][makeRef:$<]
   51 
   52 [makeVariable:VPATH] [makeAssignOp:=][makeValue: .:][makeConfig:@srcdir@]
+  53 [makeTarget:check][makeRuleOp::]
+  54 [makeRecipe:	][makeConfig:@LIBPATH_VAR@][makeRecipe:=][makeShDQ:"../lib/.libs:][makeEscDollar:$$][makeConfig:@LIBPATH_VAR@][makeShDQ:"][makeRecipe: ./test ][makeShDQ:"][makeShVar:$$@][makeShDQ:"]

@@ -294,7 +294,10 @@ syn keyword makeShIn contained in
 " A backslash before "$$" escapes the dollar sign the shell will see; before
 " "$(...)" it escapes the first character of the expansion, not the "$".
 syn match makeShEscape contained /\%#=1\\\%(\$\$\|[^$]\)/
-syn match makeShVar contained /\%#=1\$\$\%(\$\$\|[@*#?!0-9-]\|\h\w*\)/
+" In Autoconf files, "$$@NAME@" is a "$" followed by a substitution rather
+" than the shell's "$@".
+exe 'syn match makeShVar contained /\%#=1\$\$\%(\$\$\|[*#?!0-9-]\|\h\w*\|@'
+  \ . (s:autoconf ? '\%(\h\w*@\)\@!' : '') . '\)/'
 " "$$?" is left alone since it's commonly the shell's exit status.
 syn match makeEscAutoVar contained /\%#=1\$\$[@<^+|*%]/
 syn region makeShBraces contained transparent start=/\%#=1{/ end=/\%#=1}/

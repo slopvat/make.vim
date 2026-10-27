@@ -50,3 +50,5 @@ tic$x: $(DEPS_TIC)
 	@ECHO_CC@$(CC) -c $<
 
 VPATH = .:@srcdir@
+check:
+	@LIBPATH_VAR@="../lib/.libs:$$@LIBPATH_VAR@" ./test "$$@"
