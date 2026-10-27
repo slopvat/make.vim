@@ -236,3 +236,4 @@ $(foreach a,$(1),$(foreach b,$(2),
 target := $(a)$(b)
 ))
 endef
+DEEP_REFERENCE = $(a $(b $(c $(d $(e $(f $(g h)))))))

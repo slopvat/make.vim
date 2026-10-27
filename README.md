@@ -150,8 +150,9 @@ Limitations
 - A line with a quote outside of a reference before its first `:` isn't
   recognized as a rule, so that lines like `echo 'Targets:'` in canned
   recipes aren't mistaken for rules.
-- References nested more than six levels deep in the names of targets and
-  variables keep a line from being recognized as a rule or assignment.
+- References nested more than five levels deep in the names of targets and
+  variables keep a line from being recognized as a rule or assignment, and
+  references nested more than nine levels deep are flagged as unterminated.
 
 Development
 -----------

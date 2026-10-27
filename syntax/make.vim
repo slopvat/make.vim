@@ -45,20 +45,29 @@ syn iskeyword @,48-57,_,192-255,-,.,/
 " earlier on the line, Vim searches for the next match from where that item
 " ended, and a pattern starting with "^" can't match there.
 let s:bol = '^\%(\%(@\h\w*@\)\+\s*\|\s*\zs\)'
-" Text with up to five levels of balanced parentheses or braces, which may
-" continue onto other lines, keyed by the opening character. The runs of
-" ordinary characters are atomic ("\@>") so that a reference that isn't
-" closed doesn't make the engine try every way of splitting them up.
+" Text with up to four levels of balanced parentheses or braces, which may
+" continue onto other lines, keyed by the opening character, and the same
+" with up to eight levels in s:balancedDeep. The runs of ordinary characters
+" are atomic ("\@>") so that a reference that isn't closed doesn't make the
+" engine try every way of splitting them up. The deeper version is used where
+" a reference nested too deeply would be flagged as an error. The shorter one
+" is used everywhere else since it's repeated in so many patterns that the
+" deeper one would make the syntax file noticeably slower to load.
 let s:balanced = {}
+let s:balancedDeep = {}
 for [s:open, s:close] in [['(', ')'], ['{', '}']]
-  let s:balanced[s:open] = '[^' . s:open . s:close . ']*'
-  for s:depth in range(4)
-    let s:balanced[s:open] = '\%(\%([^' . s:open . s:close . '\\]\+\)\@>'
-      \ . '\|\\\n\|\\\|' . s:open . s:balanced[s:open] . s:close . '\)*'
+  let s:text = '[^' . s:open . s:close . ']*'
+  for s:depth in range(1, 8)
+    let s:text = '\%(\%([^' . s:open . s:close . '\\]\+\)\@>'
+      \ . '\|\\\n\|\\\|' . s:open . s:text . s:close . '\)*'
+    if s:depth == 4
+      let s:balanced[s:open] = s:text
+    endif
   endfor
+  let s:balancedDeep[s:open] = s:text
 endfor
-unlet s:open s:close s:depth
-" A variable reference with up to six levels of nesting.
+unlet s:open s:close s:depth s:text
+" A variable reference with up to five levels of nesting.
 let s:ref = '\$\%((' . s:balanced['('] . ')'
   \ . '\|{' . s:balanced['{'] . '}\|[^({]\)'
 " The same in the body of a "define", where references escaped with "$$" are
@@ -300,11 +309,11 @@ Syn match makeShellCallName contained
   \ nextgroup=@makeShCommand skipwhite
 
 " References that aren't closed by the end of their logical line, which is
-" checked for up to six levels of nesting. This is defined after the other
+" checked for up to nine levels of nesting. This is defined after the other
 " references so it takes priority.
 exe 'syn region makeRefError'
-  \ 'start=/\%#=1\$\%((\%(' . s:balanced['('] . ')\)\@!\|{\%('
-  \ . s:balanced['{'] . '}\)\@!\)/ skip=/\%#=1\\$/'
+  \ 'start=/\%#=1\$\%((\%(' . s:balancedDeep['('] . ')\)\@!\|{\%('
+  \ . s:balancedDeep['{'] . '}\)\@!\)/ skip=/\%#=1\\$/'
   \ 'excludenl end=/\%#=1.*\zs$/'
 
 " Shell code -----------------------------------------------------------------
@@ -727,7 +736,7 @@ delcommand -buffer Syn
 delfunction s:Expand
 
 let &cpo = s:cpo_save
-unlet s:cpo_save s:autoconf s:clusters s:balanced s:bol s:ref s:refDef s:var
-  \ s:varDef s:op s:assign s:targets s:targetsDef s:ruleop s:inrule
-  \ s:misindented s:functions s:pattern_functions s:deferred_functions
+unlet s:cpo_save s:autoconf s:clusters s:balanced s:balancedDeep s:bol s:ref
+  \ s:refDef s:var s:varDef s:op s:assign s:targets s:targetsDef s:ruleop
+  \ s:inrule s:misindented s:functions s:pattern_functions s:deferred_functions
   \ s:special_targets

@@ -236,3 +236,4 @@
  236 [makeVariableDef:target][makeDefineBody: ][makeAssignOpDef::=][makeValueDef: ][makeRef:$(a)$(b)]
  237 [makeDefineBody:))]
  238 [makeDefine:endef]
+ 239 [makeVariable:DEEP_REFERENCE] [makeAssignOp:=][makeValue: ][makeRef:$(][makeValue:a ][makeRef:$(][makeValue:b ][makeRef:$(][makeValue:c ][makeRef:$(][makeValue:d ][makeRef:$(][makeValue:e ][makeRef:$(][makeValue:f ][makeRef:$(][makeValue:g h][makeRef:)))))))]
