@@ -78,3 +78,5 @@
   78 [makeVariable:DIR] [makeAssignOp:!?=][makeValue: mktemp -d]
   79 [makeVariable:OS] [makeAssignOp::sh=][makeValue: uname]
   80 [makeVariable:SUBDIR_DEPEND_libc++][makeAssignOp::=][makeValue: libcxxrt]
+  81 [makeVariable:RTTEST_TARGETS][makeAssignOp:+:=][makeValue:rttest][makeRef:${n}]
+  82 [makeVariable:OPTIONAL][makeAssignOp:?:=][makeValue:default]

@@ -56,10 +56,11 @@ unlet s:open s:close s:depth
 let s:ref = '\$\%((' . s:balanced['('] . ')'
   \ . '\|{' . s:balanced['{'] . '}\|[^({]\)'
 " Assignment operators, including GNU Make's "::=" and ":::=" and OpenBSD's
-" combinations with "!" like "?!=" and "+!!=" and ":sh=". OpenBSD also
-" accepts "+:=" and "?:=", but other makes only treat the character before
-" "=" as part of the operator, and names like "libc++" commonly end in "+".
-let s:op = '\%(:sh\|:\{1,3}\|[+?]\=!\{,2}\|!\{1,2}?\)='
+" combinations like "?!=", "+!!=", "+:=" and ":sh=". Other makes only treat
+" the character before "=" as part of the operator, so "+:=" and "?:=" aren't
+" recognized after another "+" or "?", which keeps names like "libc++" in
+" "libc++:=" intact.
+let s:op = '\%(:sh\|:\{1,3}\|[+?]\=!\{,2}\|!\{1,2}?\|[+?]\@1<![+?]:\)='
 " The name of a variable being assigned. "+", "?" and "!" are allowed in
 " names, but not where an operator starts. The operator may be on a
 " continuation line after the name.
