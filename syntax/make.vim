@@ -552,18 +552,13 @@ let s:template =<< trim END
     \makePrefixedVariable{S},makeDefineAfterModifier skipwhite
 END
 
-" The template's lines are joined into commands without regular expressions:
-" compiling one for each line took most of the time spent loading this file.
-let s:commands = []
-for s:line in s:template
-  let s:line = trim(s:line, " \t", 1)
-  if s:line[0] ==# '\'
-    let s:commands[-1] .= s:line[1:]
-  elseif s:line !=# '' && s:line[0] !=# '"'
-    call add(s:commands, s:line)
-  endif
-endfor
-let s:template = join(s:commands, "\n")
+" Continuation lines are joined and comments and blank lines removed with
+" substitutions on the whole template, which is much faster than processing
+" it a line at a time. In a string, "." and "[^\n]" match newlines, so the
+" newline is excluded with "[^\x0a]".
+let s:template = substitute(substitute(join(s:template, "\n"),
+  \ '\%#=1\n\s*\\', '', 'g'),
+  \ '\%#=1\%(^\|\n\)\s*\%("[^\x0a]*\)\=\ze\%(\n\|$\)', '', 'g')
 let s:values = {'BOL': s:bol, 'OP': s:op, 'ASSIGN': s:assign,
   \ 'RULEOP': s:ruleop, 'INRULE': s:inrule, 'MISINDENTED': s:misindented}
 for [s:values.S, s:values.CONTAINED, s:values.CMDSUB, s:values.ESCAPED,
@@ -578,7 +573,7 @@ for [s:values.S, s:values.CONTAINED, s:values.CMDSUB, s:values.ESCAPED,
     exe s:command
   endfor
 endfor
-unlet s:template s:commands s:values s:command s:line
+unlet s:template s:values s:command
 
 " Directives -----------------------------------------------------------------
 
