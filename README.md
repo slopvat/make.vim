@@ -16,7 +16,7 @@ them.
 Differences From Vim's Syntax File
 ----------------------------------
 
-- **Speed:** Highlighting is 5 to 9 times faster; see the table below.
+- **Speed:** Highlighting is 8 to 11 times faster; see the table below.
   Every pattern uses Vim's backtracking regular expression engine and is
   written so that the engine can skip ahead to where it could match. In
   builds of Vim that use musl's memory allocator, the NFA engine's
@@ -57,9 +57,11 @@ Time taken to highlight every line of a file in a musl-linked build of Vim
 
 | File                          | Lines  | Vim's File | This File |
 |-------------------------------|--------|------------|-----------|
-| A hand-written POSIX Makefile | 1,205  | 0.36s      | 0.04s     |
-| Vim's `src/Makefile`          | 4,779  | 1.01s      | 0.14s     |
-| GNU coreutils' `Makefile.in`  | 29,607 | 11.3s      | 2.3s      |
+| A hand-written POSIX Makefile | 1,205  | 0.36s      | 0.03s     |
+| Vim's `src/Makefile`          | 4,779  | 1.01s      | 0.10s     |
+| GNU coreutils' `Makefile.in`  | 29,607 | 11.3s      | 1.5s      |
+
+Loading the syntax file takes about 4.5ms.
 
 Installation
 ------------
