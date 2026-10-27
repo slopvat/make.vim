@@ -4,7 +4,9 @@
 " Highlights Makefiles with an understanding of the shell code they contain:
 " "$$" escapes, shell strings, variables and command substitutions are
 " highlighted the way the shell will eventually see them, and an unterminated
-" quote or parenthesis can only affect the logical line it appears on.
+" quote or parenthesis can only affect the logical line it appears on. In the
+" body of a "define", where a reference can continue onto later lines, one
+" that's never closed is flagged at the "endef".
 "
 " AI Disclosure:
 " - Authorship: AI-generated
@@ -67,6 +69,11 @@ for [s:open, s:close] in [['(', ')'], ['{', '}']]
   let s:balancedDeep[s:open] = s:text
 endfor
 unlet s:open s:close s:depth s:text
+" The "endef" that ends a "define", and a lookbehind for the start of the
+" line after one. An "endef" after a line ending with a backslash doesn't
+" count since Make joins the two lines.
+let s:endef = '\%( [ \t]*\)\=endef\>'
+let s:after_endef = '\%(^\%(\\\n\)\@2<!' . s:endef . '.*\n\)\@<='
 " A variable reference with up to five levels of nesting.
 let s:ref = '\$\%((' . s:balanced['('] . ')'
   \ . '\|{' . s:balanced['{'] . '}\|[^({]\)'
@@ -175,14 +182,15 @@ let s:clusters = {}
 let s:clusters.makeLineEnd = 'makeLineCont,makeContError'
 " Things Make expands wherever they appear. References are checked for being
 " unterminated, but not inside other references, where the outermost one is
-" checked instead, or in the body of a "define", where references can
-" continue onto later lines: knowing whether they do would take a pattern
-" that looks at later lines, which Vim doesn't highlight again when they
-" change.
+" checked instead. In the body of a "define", where references can continue
+" onto later lines, the ones that aren't closed on their own line are
+" followed to their end instead (see makeRefLines).
 let s:clusters.makeNestedExpansions = 'makeRef,makeCall,makeShellCall,'
   \ . 'makeEscDollar' . (s:autoconf ? ',makeConfig' : '')
 let s:clusters.makeExpansions = s:clusters.makeNestedExpansions
   \ . ',makeRefError'
+let s:clusters.makeDefExpansions = s:clusters.makeNestedExpansions
+  \ . ',makeRefLines'
 " References and function calls escaped with "$$".
 let s:clusters.makeEscExpansions = 'makeEscRef,makeEscCall,makeEscAutoVar'
 " What can come where a shell command starts.
@@ -194,7 +202,7 @@ let s:clusters.makeShCommand = 'makeShConditional,makeShRepeat,'
 " a version of each for "define" bodies, where "$$(...)" is a reference.
 for [s:suffix, s:expansions, s:cmdsub] in [
   \ ['', 'makeExpansions', 'makeShCmdSub,makeShArith'],
-  \ ['Def', 'makeNestedExpansions', s:clusters.makeEscExpansions]]
+  \ ['Def', 'makeDefExpansions', s:clusters.makeEscExpansions]]
   let s:clusters['makeShWords' . s:suffix] = s:clusters[s:expansions] . ','
     \ . s:clusters.makeLineEnd . ',makeShEscape,makeShVar,makeShParam'
     \ . s:suffix . ',' . s:cmdsub . ',makeShSQ' . s:suffix . ',makeShDQ'
@@ -205,6 +213,12 @@ for [s:suffix, s:expansions, s:cmdsub] in [
     \ . s:suffix] . ',makeShParenSeparator'
 endfor
 unlet s:suffix s:expansions s:cmdsub
+" The lines in the body of a "define".
+let s:clusters.makeDefineLines = s:clusters.makeDefExpansions . ','
+  \ . s:clusters.makeEscExpansions . ',' . s:clusters.makeLineEnd
+  \ . ',makeComment,makeTargetDef,makeVariableDef,makeModifierDef,'
+  \ . 'makeRecipeDef,makeConditional,makeInclude,makeStatement,'
+  \ . 'makeBSDConditional,makeDefine'
 
 function! s:Expand(command) abort
   return substitute(a:command, '\%#=1@\(make\w*\)',
@@ -503,10 +517,11 @@ let s:template =<< trim END
   " A rule's recipe continues until a line that isn't a recipe line,
   " comment, blank line or conditional. Recipe lines can't be recognized by
   " themselves: a line starting with a tab is only a recipe line in the
-  " context of a rule.
+  " context of a rule. In the body of a "define", it also ends after an
+  " "endef" that an unterminated reference took.
   syn region makeRecipeBlock{S} contained
     \ start=/\%#=1^\ze\%({INRULE}\|{MISINDENTED}\)/
-    \ end=/\%#=1^\%({INRULE}\|{MISINDENTED}\)\@!/
+    \ end=/\%#=1^\%(\%({INRULE}\|{MISINDENTED}\)\@!{AFTERENDEF}\)/
     \ contains=makeRecipe{S},makeMisindented,makeComment,makeConfig,
     \makeConfigIf,makeConditional,makeBSDConditional
 
@@ -573,10 +588,10 @@ let s:template = substitute(substitute(join(s:template, "\n"),
 let s:values = {'BOL': s:bol, 'OP': s:op, 'ASSIGN': s:assign,
   \ 'RULEOP': s:ruleop, 'INRULE': s:inrule, 'MISINDENTED': s:misindented}
 for [s:values.S, s:values.CONTAINED, s:values.CMDSUB, s:values.ESCAPED,
-  \ s:values.EXPANSIONS] in
-  \ [['', '', 'makeShCmdSub,makeShArith', '', '@makeExpansions'],
+  \ s:values.EXPANSIONS, s:values.AFTERENDEF] in
+  \ [['', '', 'makeShCmdSub,makeShArith', '', '@makeExpansions', ''],
   \  ['Def', 'contained', '@makeEscExpansions', ',@makeEscExpansions',
-  \   '@makeNestedExpansions']]
+  \   '@makeDefExpansions', '\|' . s:after_endef]]
   let s:values.VAR = s:var{s:values.S}
   let s:values.TARGETS = s:targets{s:values.S}
   for s:command in split(s:Expand(substitute(s:template,
@@ -653,12 +668,38 @@ syn match makeDefineOp contained /\%#=1\%(:::\|::\|[:+?!]\)\==/
 " a recipe line since bodies are often canned recipes. The body starts on the
 " line after "define" since a pending "nextgroup" is discarded at the end of a
 " line unless "skipnl" is used. A line starting with a tab can't end a
-" "define".
-Syn region makeDefineBody contained start=/\%#=1^/
-  \ matchgroup=makeDefine end=/\%#=1^\%( [ \t]*\)\=endef\>/
-  \ contains=@makeNestedExpansions,@makeEscExpansions,makeComment,
-  \@makeLineEnd,makeTargetDef,makeVariableDef,makeModifierDef,makeRecipeDef,
-  \makeConditional,makeInclude,makeStatement,makeBSDConditional,makeDefine
+" "define". The body also ends after an "endef" that an unterminated
+" reference took.
+exe 'Syn region makeDefineBody contained start=/\%#=1^/'
+  \ 'matchgroup=makeDefine'
+  \ 'end=/\%#=1^\%(' . s:endef . '\|' . s:after_endef . '\)/'
+  \ 'contains=@makeDefineLines'
+
+" References in the body of a "define" that aren't closed on their own line,
+" which Make allows since it expands the whole body at once. "extend" lets
+" one continue past the end of the item it starts in, and the lines it
+" continues onto are highlighted like the rest of the body. "keepend" lets it
+" find its end inside the items on those lines: its skip pattern passes over
+" text and balanced parentheses and braces, so the end pattern only finds the
+" one that closes it. One that's still open at the "endef" takes it,
+" highlighting it as an error, and a reference that contains one like that
+" ends right after it. Flagging the start of the reference instead would
+" take a pattern that looks at later lines, and Vim doesn't highlight a line
+" again when a later one changes. References with parentheses and braces
+" share the region since each pattern makes highlighting a little slower
+" everywhere, so a stray closing brace in one with parentheses, or the
+" reverse, ends it early.
+exe 'Syn region makeRefLines contained transparent keepend extend'
+  \ 'matchgroup=makeRef'
+  \ 'start=/\%#=1\$\%((\%(' . s:balancedDeep['('] . ')\)\@!'
+  \ . '\|{\%(' . s:balancedDeep['{'] . '}\)\@!\)/'
+  \ 'skip=/\%#=1\%(\s*endef\>\|\%(endef\)\@5<=\)\@!\%(\%([^(){}]\+\)\@>'
+  \ . '\|(' . s:balancedDeep['('] . ')\|{' . s:balancedDeep['{'] . '}\)\+/'
+  \ 'matchgroup=NONE end=/\%#=1[)}]'
+  \ . '\|\%(^\%(\\\n\)\@2<!\%( [ \t]*\)\=endef\)\@20<=\>/'
+  \ 'matchgroup=makeRefError'
+  \ 'end=/\%#=1^\%(\\\n\)\@2<!\%( [ \t]*\)\=\zsendef\>/'
+  \ 'contains=makeCallName,@makeDefineLines'
 
 " Synchronization ------------------------------------------------------------
 
@@ -736,7 +777,7 @@ delcommand -buffer Syn
 delfunction s:Expand
 
 let &cpo = s:cpo_save
-unlet s:cpo_save s:autoconf s:clusters s:balanced s:balancedDeep s:bol s:ref
-  \ s:refDef s:var s:varDef s:op s:assign s:targets s:targetsDef s:ruleop
-  \ s:inrule s:misindented s:functions s:pattern_functions s:deferred_functions
-  \ s:special_targets
+unlet s:cpo_save s:autoconf s:clusters s:balanced s:balancedDeep s:endef
+  \ s:after_endef s:bol s:ref s:refDef s:var s:varDef s:op s:assign s:targets
+  \ s:targetsDef s:ruleop s:inrule s:misindented s:functions
+  \ s:pattern_functions s:deferred_functions s:special_targets

@@ -30,7 +30,9 @@ Differences From Vim's Syntax File
   affected. That includes the start of a variable's value and the command
   after a reference like `$(Q)` at the start of a recipe line.
 - **Robustness:** An unterminated quote, reference or parenthesis can only
-  affect the logical line it's on.
+  affect the logical line it's on. In the body of a `define`, where a
+  reference can continue onto later lines, the only line a reference that's
+  never closed affects is the `endef`.
 - **Rule context:** A line starting with a tab is only highlighted as a
   recipe line when it follows a rule, which is how Make interprets it.
   Comments, blank lines and conditionals between recipe lines don't end the
@@ -50,7 +52,8 @@ Differences From Vim's Syntax File
 - **Errors:** Recipe lines indented with spaces instead of a tab, white
   space after a backslash that was meant to continue a line and references
   that aren't closed by the end of their logical line are highlighted as
-  errors.
+  errors. In the body of a `define`, the `endef` is highlighted as an error
+  when a reference is still open there.
 
 Time taken to highlight every line of a file in a musl-linked build of Vim
 9.1.1868:
@@ -61,7 +64,7 @@ Time taken to highlight every line of a file in a musl-linked build of Vim
 | Vim's `src/Makefile`          | 4,779  | 1.01s      | 0.10s     |
 | GNU coreutils' `Makefile.in`  | 29,607 | 11.3s      | 1.5s      |
 
-Loading the syntax file takes about 4.5ms.
+Loading the syntax file takes about 4.6ms.
 
 Installation
 ------------
@@ -134,10 +137,13 @@ Limitations
   `$$(sort ...)` are command substitutions.
 - Inside a `define`, `$$(...)` is still a command substitution when it's in
   a `$(shell ...)` call or the word after `case`.
-- Unterminated references aren't flagged inside a `define`, where a
-  reference can continue onto later lines: telling whether one does would
-  take a pattern that looks at later lines, and Vim doesn't highlight a line
-  again when a later one changes.
+- Inside a `define`, an unterminated reference is flagged at the `endef`
+  rather than where it starts: flagging the start would take a pattern that
+  looks at later lines, and Vim doesn't highlight a line again when a later
+  one changes. When looking for the end of a reference that continues onto
+  later lines, parentheses and braces are counted together, so a stray `}`
+  in a reference with parentheses, or the reverse, ends it early, and so
+  does a parenthesis outside of a reference that's closed on a later line.
 - A backslash at the end of a line always continues the line, even when it's
   escaped by another backslash.
 - A continuation line is highlighted as the start of a command when the
@@ -191,6 +197,17 @@ Syntax items in this file follow a few rules discovered while writing it:
 - An end pattern that matches the end of a line makes the item containing
   the region continue onto the next line unless the end pattern is preceded
   by `excludenl`.
+- Vim searches for an end from wherever it needs one, e.g. the start of a
+  line or the end of a contained item, and an end pattern can match anywhere
+  after that. An end that can only be told apart by what precedes it, like
+  the parenthesis that closes a reference, is easiest to find with a skip
+  pattern that passes over everything else.
+- When a `keepend` region's end is found on a later line, the items it
+  contains end there, and they don't look for their own ends before then.
+- `extend` lets an item continue past the end of every `keepend` region that
+  contains it.
+- The backtracking engine checks a lookbehind after the rest of the pattern
+  matches, trying every position back to the start of the previous line.
 - Patterns that fail by backtracking a character at a time, like a name
   that isn't followed by an assignment operator, fail immediately when the
   name is atomic (`\@>`).

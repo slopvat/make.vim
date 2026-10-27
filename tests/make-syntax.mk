@@ -237,3 +237,42 @@ target := $(a)$(b)
 ))
 endef
 DEEP_REFERENCE = $(a $(b $(c $(d $(e $(f $(g h)))))))
+define VALUE_LINES
+OBJECTS := $(foreach x,$(LIST),
+  $(x).o)
+endef
+define BRACES
+${foreach x,${LIST},
+  ${x}}
+endef
+# Make counts parentheses in shell code and quotes too, and a quoted string
+# that contains a reference continues after it.
+define QUOTED_PAREN
+	$(foreach x,$(LIST),
+	  (cd $(x) && $(MAKE)); echo "$(foreach y,$(x),
+	  $(y)) done";)
+endef
+# One that's never closed is flagged at the "endef", even when it contains
+# one that's closed on a later line, and the lines after it are highlighted
+# normally again.
+define UNCLOSED_FOREACH
+$(foreach a,$(1),$(foreach b,$(2),
+target := $(a)$(b)
+)
+endef
+define UNCLOSED_IN_RECIPE
+$(1):
+	@$(foreach x,$(2),
+	  echo "(" $(x);)
+	@echo done
+  endef # comment
+# Make joins a line ending with a backslash to the next one, so the first
+# "endef" is part of the body.
+define CONTINUED_ENDEF
+	$(foreach x,$(LIST),
+	  echo $(x) \
+endef
+	  more;
+endef
+after-defines:
+	@echo after
