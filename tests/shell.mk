@@ -72,3 +72,15 @@ prefixes:
 	cc -o prog \
 		-O2 \
 		-Wall
+
+command-starts:
+	-if test -f old; then rm old; fi
+	$(Q)for f in $(FILES); do echo $$f; done
+	files=`for f in *.c; do echo $$f; done`; \
+	dirs=$$(if test -d sub; then echo sub; fi); \
+	(if true; then :; fi); \
+	$(SET_LIB_PATH) \
+	for f in $$files; do \
+	  if test -f $$f; then :; fi \
+	done
+	echo $$((x * (y + 1))) $$(( $${n} + $$(count) + `wc -l < f` ))

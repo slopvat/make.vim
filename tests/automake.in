@@ -34,3 +34,11 @@ install-binPROGRAMS: $(bin_PROGRAMS)
 	sed 's/$(EXEEXT)$$//' | \
 	while read p p1; do if test -f $$p; then echo "$$p"; echo "$$p"; else :; fi; \
 	done
+
+@MAINT@.PHONY: maintainer-clean
+stage1-start::
+	@echo stage1 > stage_current
+@if bfd
+	@cd $(HOST_SUBDIR); mv stage1-bfd bfd
+@endif bfd
+	@echo done

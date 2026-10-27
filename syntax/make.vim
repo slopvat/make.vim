@@ -55,11 +55,14 @@ let s:assign = '\s*\%(:::\|::\|[:+?!]\)\=='
 let s:targets = '\%([^[:space:]:#=$&]\|&:\@!\|' . s:ref . '\)'
   \ . '\%([^:#=$&]\|\\\n\|&:\@!\|' . s:ref . '\)*'
 let s:ruleop = '\s*&\=::\=[:=]\@!'
+" Whether this is a file that configure processes, e.g. Makefile.in.
+let s:autoconf = expand('%:e') =~# '^\%(in\|am\)$'
 " Lines that keep a rule's recipe going: recipe lines, comments, blank lines
-" and conditionals.
+" and conditionals, including Autoconf's.
 let s:inrule = '\%(@\h\w*@\)*\%(\t\|[ \t]*\%(#\|$\)\)'
   \ . '\|[ \t]*\%(ifn\=eq\|ifn\=def\|else\|endif\)\>'
   \ . '\|\.\s*\%(\%(el\)\=if\|else\>\|endif\>\|for\>\|endfor\>\)'
+  \ . (s:autoconf ? '\|@\%(end\)\=if\s' : '')
 " Lines in a rule's recipe that are indented with spaces instead of a tab and
 " aren't valid Make lines either, which GNU Make reports as a "missing
 " separator": they don't start with a directive, comment or function call,
@@ -121,8 +124,11 @@ syn match makeEscDollar /\%#=1\$\$/
 " configure processes, e.g. Makefile.in; elsewhere, text like "@VERSION@" is
 " more likely to be a placeholder a recipe replaces. They're not recognized
 " after ":", where "@" starts a BSD loop modifier like "${LIST:@x@...@}".
-if expand('%:e') =~# '^\%(in\|am\)$'
+" Lines like "@if gcc-bootstrap" and "@endif gcc-bootstrap", which GCC and
+" Binutils use even in recipes, tell configure which lines to keep.
+if s:autoconf
   syn match makeConfig /\%#=1@\%(:@\)\@2<!\h\w*@/
+  syn match makeConfigIf /\%#=1^@\%(end\)\=if\s.*/
 endif
 
 " Variable references and function calls -------------------------------------
@@ -214,8 +220,12 @@ unlet s:open s:close s:balanced s:depth
 
 " Keywords are only recognized where a command can start, so "echo done"
 " doesn't highlight "done". That's after an operator, after a keyword that
-" precedes a command, at the start of a recipe line and at the start of a
-" continuation line when the previous line ended with one of those.
+" precedes a command or ends a compound command, at the start of a recipe
+" line, a variable's value, a command substitution or a subshell, and at the
+" start of a continuation line when the previous line ended with one of
+" those. A continuation line after a Make reference is also included: a
+" reference at the end of a line, like Automake's "$(am__cd) \", usually
+" expands to a complete command.
 "
 " Parentheses and closing braces only count as operators outside of command
 " substitutions and parameter expansions since contained items would
@@ -226,15 +236,20 @@ syn match makeShSeparator contained transparent /\%#=1[;&|{]/
   \ nextgroup=@makeShCommand skipwhite
 syn match makeShParenSeparator contained transparent /\%#=1[()}]/
   \ nextgroup=@makeShCommand skipwhite
+" The start of a command after "`", "$$(" or the operator of an assignment.
+" It also matches after "(" and "=" elsewhere in them, e.g. "--opt=if",
+" which is rarely followed by a keyword.
+syn match makeShCommandStart contained transparent /\%#=1[`(=]\@1<=/
+  \ nextgroup=@makeShCommand skipwhite
 syn match makeShCommandLineCont contained /\%#=1\\$/
   \ nextgroup=@makeShCommand skipwhite skipnl
-syn keyword makeShConditional contained if then else elif
+syn match makeShRefLineCont contained /\%#=1\\\%([)}][ \t]*\\\)\@40<=$/
+  \ nextgroup=@makeShCommand skipwhite skipnl
+syn keyword makeShConditional contained if then else elif fi esac
   \ nextgroup=@makeShCommand skipwhite
-syn keyword makeShConditional contained fi esac
 syn keyword makeShConditional contained case nextgroup=makeShCaseWord skipwhite
-syn keyword makeShRepeat contained while until do
+syn keyword makeShRepeat contained while until do done
   \ nextgroup=@makeShCommand skipwhite
-syn keyword makeShRepeat contained done
 syn keyword makeShRepeat contained for nextgroup=makeShForName skipwhite
 syn match makeShForName contained transparent /\%#=1\h\w*/
   \ nextgroup=makeShIn skipwhite
@@ -250,8 +265,15 @@ syn match makeShVar contained /\%#=1\$\$\%(\$\$\|[@*#?!0-9-]\|\h\w*\)/
 syn match makeEscAutoVar contained /\%#=1\$\$[@<^+|*%]/
 syn region makeShBraces contained transparent start=/\%#=1{/ end=/\%#=1}/
 syn region makeShCmdSub contained matchgroup=makeShCmdSubDelim
-  \ start=/\%#=1\$\$(/ end=/\%#=1)/ contains=@makeShell,makeShParens
+  \ start=/\%#=1\$\$(/ end=/\%#=1)/
+  \ contains=makeShCommandStart,@makeShell,makeShParens
 syn region makeShParens contained transparent start=/\%#=1(/ end=/\%#=1)/
+" Arithmetic expansions, which are defined after command substitutions so
+" they take priority.
+syn region makeShArith contained matchgroup=makeShCmdSubDelim
+  \ start=/\%#=1\$\$((/ end=/\%#=1))/
+  \ contains=@makeExpansions,@makeLineEnd,makeShVar,makeShParam,makeShCmdSub,
+  \makeShBacktick,makeShParens
 
 " Deferred function calls in variable values, which are defined after shell
 " command substitutions so they take priority. "%" is only highlighted in
@@ -281,13 +303,23 @@ syn match makeContError /\%#=1\\\s\+$/
 " Recipes --------------------------------------------------------------------
 
 " The tab at the start of a recipe line, which is followed by a command and
-" optionally prefixes like "@". Continuation lines, which commonly start with
-" options like "-o", are excluded.
+" optionally prefixes like "@" or a reference like "$(Q)" that expands to
+" one. Continuation lines, which commonly start with options like "-o", are
+" excluded.
 syn match makeRecipeStart contained transparent
-  \ /\%#=1^\%(\\\n\)\@2<!\%(@\h\w*@\)*\t/ contains=makeConfig
+  \ /\%#=1^\%(\\\n\)\@2<!\%(@\h\w*@\)*\t\%(\$\%((\h\w*)\|{\h\w*}\)\ze\S\)\=/
+  \ contains=makeConfig,makeRef
   \ nextgroup=makeRecipePrefix,@makeShCommand skipwhite
 syn match makeRecipePrefix contained /\%#=1[@+-]\%([ \t]*[@+-]\)*/
-  \ nextgroup=makeShCommentAfterPrefix,@makeShCommand skipwhite
+  \ nextgroup=makeShCommentAfterPrefix,makeShPrefixKeyword,@makeShCommand
+  \ skipwhite
+" Vim only looks for keywords after a character that can't be part of a
+" word, and "-" can be so that "-include" is a keyword, so keywords right
+" after a "-" prefix are matched separately. Matches like this are too slow
+" to use after every operator: Vim searches the rest of the line for them.
+syn match makeShPrefixKeyword contained
+  \ /\%#=1-\@1<=\%(if\|while\|until\|for\|case\)\>/
+  \ nextgroup=@makeShCommand skipwhite
 exe 'syn match makeMisindented contained /\%#=1^' . s:misindented . '/'
 
 " Directive arguments --------------------------------------------------------
@@ -295,8 +327,14 @@ exe 'syn match makeMisindented contained /\%#=1^' . s:misindented . '/'
 " The arguments of directives, which end at a comment or the end of the
 " logical line. Defined before assignments, which take priority after
 " "export" and similar keywords.
+"
+" Zero-width regions in a "nextgroup" can start before the white space that
+" "skipwhite" skips, so they start with "\S" to keep from preempting items
+" that follow the white space. They don't start at a "#" either: if an empty
+" region ended where it started, Vim would skip the comment. Vim ignores
+" regions with zero-width starts like these if they have a "nextgroup".
 syn region makeDirArgs contained start=/\%#=1\ze[^[:space:]#]/
-  \ skip=/\%#=1\\\%([\\#]\|$\)\|\$\%(\$\|[({][^)}#]*#\)/
+  \ skip=/\%#=1\\\%([\\#]\|$\)\|\$\%(\$\_$\@!\|[({][^)}#]*#\)/
   \ end=/\%#=1\ze#\|$/ keepend
   \ contains=@makeExpansions,@makeEscExpansions,@makeLineEnd,makePattern,
   \makeString
@@ -309,8 +347,10 @@ syn match makeString contained /\%#=1<[^>]*>/ contains=@makeExpansions
 syn match makePattern contained /\%#=1%/
 syn match makeRuleOp contained /\%#=1:/
 syn match makeOrderOnly contained /\%#=1|/
+" Special targets aren't recognized at the end of a word like "foo.PHONY"
+" unless it's an Autoconf substitution like "@MAINT@".
 exe 'syn match makeSpecialTarget contained'
-  \ '/\%#=1\.\%(\S\.\)\@2<!\%(' . s:special_targets . '\)\>/'
+  \ '/\%#=1\.\%([^[:space:]@]\.\)\@2<!\%(' . s:special_targets . '\)\>/'
 
 " Rules, assignments and their shell code ------------------------------------
 
@@ -331,7 +371,7 @@ let s:template =<< trim END
   " one.
   syn cluster makeShWords{S} contains=@makeExpansions,@makeLineEnd,
     \makeShEscape,makeShVar,makeShParam{S},{CMDSUB},makeShSQ{S},makeShDQ{S},
-    \makeShSeparator
+    \makeShSeparator,makeShRefLineCont
   syn cluster makeShell{S} contains=@makeShWords{S},makeShBacktick{S}
   " Shell code that isn't nested in an expansion.
   syn cluster makeShTop{S} contains=@makeShell{S},makeShParenSeparator
@@ -340,7 +380,7 @@ let s:template =<< trim END
     \ start=/\%#=1\$\${/ end=/\%#=1}/ contains=@makeShell{S},makeShBraces
   syn region makeShBacktick{S} contained matchgroup=makeShCmdSubDelim
     \ start=/\%#=1`/ skip=/\%#=1\\[\\`]/ end=/\%#=1`/
-    \ contains=@makeShWords{S}
+    \ contains=makeShCommandStart,@makeShWords{S}
   " Make still expands variables in shell strings, even single-quoted ones.
   syn region makeShSQ{S} contained start=/\%#=1'/ end=/\%#=1'/
     \ contains=@makeExpansions,@makeLineEnd{ESCAPED}
@@ -360,12 +400,12 @@ let s:template =<< trim END
     \ start=/\%#=1^\ze\%({INRULE}\|{MISINDENTED}\)/
     \ end=/\%#=1^\%({INRULE}\|{MISINDENTED}\)\@!/
     \ contains=makeRecipe{S},makeMisindented,makeComment,makeConfig,
-    \makeConditional,makeBSDConditional
+    \makeConfigIf,makeConditional,makeBSDConditional
 
   " Rules are defined before the other kinds of lines, which take priority
   " when they start at the same place.
   syn match makeTarget{S} {CONTAINED} /\%#=1{BOL}{TARGETS}\ze{RULEOP}/
-    \ contains=makeSpecialTarget,makePattern,@makeExpansions
+    \ contains=makeSpecialTarget,makePattern,@makeExpansions,@makeLineEnd
     \ nextgroup=makeRuleBody{S} skipwhite
   syn region makeRuleBody{S} contained matchgroup=makeRuleOp
     \ start=/\%#=1&\=::\=/ skip=/\%#=1\\$/ end=/\%#=1$/ keepend
@@ -381,34 +421,30 @@ let s:template =<< trim END
   " don't start a recipe.
   syn match makeTarget{S} {CONTAINED} /\%#=1{BOL}{TARGETS}\ze{RULEOP}\s*
     \\%(\%(export\|override\|private\|unexport\)\s\+\)*{VAR}{ASSIGN}/
-    \ contains=makeSpecialTarget,makePattern,@makeExpansions
+    \ contains=makeSpecialTarget,makePattern,@makeExpansions,@makeLineEnd
     \ nextgroup=makeTargetVarOp{S} skipwhite
   syn match makeTargetVarOp{S} contained /\%#=1&\=::\=/
     \ nextgroup=makeModifier{S},makeVariable{S} skipwhite
 
   syn match makeVariable{S} {CONTAINED} /\%#=1{BOL}{VAR}\ze{ASSIGN}/
-    \ contains=@makeExpansions nextgroup=makeAssignOp{S} skipwhite
+    \ contains=@makeExpansions nextgroup=makeValue{S} skipwhite
   syn match makeVariable{S} contained /\%#=1{VAR}\ze{ASSIGN}/
-    \ contains=@makeExpansions nextgroup=makeAssignOp{S} skipwhite
-  syn match makeAssignOp{S} contained /\%#=1\%(:::\|::\|[:+?!]\)\==/
-    \ nextgroup=makeValue{S} skipwhite
+    \ contains=@makeExpansions nextgroup=makeValue{S} skipwhite
   " Values are highlighted as shell code since that's how most of them end up
   " being used, except for calls to Make functions deferred with "$$", e.g.
-  " "$$(error ...)". A "#" outside of a reference starts a comment even in
-  " what looks like a shell string, so the value ends there, and the comment
-  " is matched by whatever contains the line; Vim ignores regions with
-  " zero-width starts like this one if they have a "nextgroup". Since GNU
-  " Make 4.3, "#" inside a reference doesn't start a comment, so the skip
-  " pattern handles references like "$(shell echo '#')" that don't contain
-  " other references.
-  "
-  " Zero-width regions in a "nextgroup" can start before the white space
-  " that "skipwhite" skips, so they start with "\S" to keep from preempting
-  " items that follow the white space. They don't start at a "#" either: if
-  " an empty region ended where it started, Vim would skip the comment.
-  syn region makeValue{S} contained start=/\%#=1\ze[^[:space:]#]/
-    \ skip=/\%#=1\\\%([\\#]\|$\)\|\$\%(\$\|[({][^)}#]*#\)/
-    \ end=/\%#=1\ze#\|$/ keepend contains=@makeShTop{S},makeDeferredCall
+  " "$$(error ...)". A value starts with the assignment operator, so the
+  " shell code after it starts where a command can. A "#" outside of a
+  " reference starts a comment even in what looks like a shell string, so the
+  " value ends there, and the comment is matched by whatever contains the
+  " line. Since GNU Make 4.3, "#" inside a reference doesn't start a comment,
+  " so the skip pattern handles references like "$(shell echo '#')" that
+  " don't contain other references. It doesn't skip "$$" at the end of a
+  " line: a skip match that reaches the end of a line continues the region.
+  syn region makeValue{S} contained matchgroup=makeAssignOp{S}
+    \ start=/\%#=1\%(:::\|::\|[:+?!]\)\==/
+    \ skip=/\%#=1\\\%([\\#]\|$\)\|\$\%(\$\_$\@!\|[({][^)}#]*#\)/
+    \ end=/\%#=1\ze#\|$/ keepend
+    \ contains=makeShCommandStart,@makeShTop{S},makeDeferredCall
 
   syn keyword makeModifier{S} {CONTAINED} export unexport override private
     \ nextgroup=makeModifier{S},makeStatement,makeDirArgs,makeVariable{S},
@@ -419,7 +455,7 @@ let s:values = {'BOL': s:bol, 'VAR': s:var, 'ASSIGN': s:assign,
   \ 'TARGETS': s:targets, 'RULEOP': s:ruleop, 'INRULE': s:inrule,
   \ 'MISINDENTED': s:misindented}
 for [s:values.S, s:values.CONTAINED, s:values.CMDSUB, s:values.ESCAPED] in
-  \ [['', '', 'makeShCmdSub', ''],
+  \ [['', '', 'makeShCmdSub,makeShArith', ''],
   \  ['Def', 'contained', '@makeEscExpansions', ',@makeEscExpansions']]
   let s:command = ''
   for s:line in s:template + ['']
@@ -461,13 +497,13 @@ exe 'syn match makeStatement /\%#=1^\.\s*\%(' . join([
   \ ], '\|') . '\)\>/ nextgroup=makeDirArgs skipwhite'
 
 syn region makeBSDExpr contained start=/\%#=1\ze[^[:space:]#]/
-  \ skip=/\%#=1\\\%([\\#]\|$\)\|\$\%(\$\|[({][^)}#]*#\)/
+  \ skip=/\%#=1\\\%([\\#]\|$\)\|\$\%(\$\_$\@!\|[({][^)}#]*#\)/
   \ end=/\%#=1\ze#\|$/ keepend
   \ contains=@makeExpansions,@makeLineEnd,makeString,makeBSDFunction
 syn keyword makeBSDFunction contained defined make empty exists target
   \ commands
 syn region makeBSDFor contained start=/\%#=1\ze[^[:space:]#]/
-  \ skip=/\%#=1\\\%([\\#]\|$\)\|\$\%(\$\|[({][^)}#]*#\)/
+  \ skip=/\%#=1\\\%([\\#]\|$\)\|\$\%(\$\_$\@!\|[({][^)}#]*#\)/
   \ end=/\%#=1\ze#\|$/ keepend
   \ contains=@makeExpansions,@makeLineEnd,makeBSDIn
 syn keyword makeBSDIn contained in
@@ -511,6 +547,7 @@ hi def link makeCallName Function
 hi def link makeComment Comment
 hi def link makeConditional PreCondit
 hi def link makeConfig PreCondit
+hi def link makeConfigIf makeConfig
 hi def link makeContError Error
 hi def link makeDefine Define
 hi def link makeDefineAfterModifier makeDefine
@@ -534,12 +571,15 @@ hi def link makeRuleOp Operator
 hi def link makeShComment Comment
 hi def link makeShCommentAfterPrefix makeShComment
 hi def link makeShCmdSubDelim Special
+hi def link makeShCommandLineCont makeLineCont
 hi def link makeShConditional Conditional
 hi def link makeShDQ String
 hi def link makeShDQEscape Special
 hi def link makeShEscape Special
 hi def link makeShIn Statement
 hi def link makeShParam PreProc
+hi def link makeShPrefixKeyword makeShConditional
+hi def link makeShRefLineCont makeLineCont
 hi def link makeShRepeat Repeat
 hi def link makeShSQ String
 hi def link makeShVar PreProc
@@ -561,6 +601,7 @@ unlet s:group
 let b:current_syntax = "make"
 
 let &cpo = s:cpo_save
-unlet s:cpo_save s:bol s:ref s:var s:assign s:targets s:ruleop s:inrule
+unlet s:cpo_save s:autoconf s:bol s:ref s:var s:assign s:targets s:ruleop
+  \ s:inrule
   \ s:misindented s:functions s:pattern_functions s:deferred_functions
   \ s:special_targets

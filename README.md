@@ -16,7 +16,7 @@ them.
 Differences From Vim's Syntax File
 ----------------------------------
 
-- **Speed:** Highlighting is 6 to 10 times faster; see the table below.
+- **Speed:** Highlighting is 5 to 9 times faster; see the table below.
   Every pattern uses Vim's backtracking regular expression engine and is
   written so that the engine can skip ahead to where it could match. In
   builds of Vim that use musl's memory allocator, the NFA engine's
@@ -24,9 +24,11 @@ Differences From Vim's Syntax File
 - **Shell code:** `$$` is treated as an escaped dollar sign, so
   `"$${regex:-^$$}"` is a string containing a parameter expansion that
   contains an escaped `$`, not an unterminated mess. Single- and
-  double-quoted strings, backticks, `$$(...)`, `$${...}`, shell comments and
-  keywords are all recognized. Keywords like `done` are only highlighted
-  where a command can start, so `echo done` isn't affected.
+  double-quoted strings, backticks, `$$(...)`, `$$((...))`, `$${...}`,
+  shell comments and keywords are all recognized. Keywords like `done` are
+  only highlighted where a command can start, so `echo done` isn't
+  affected. That includes the start of a variable's value and the command
+  after a reference like `$(Q)` at the start of a recipe line.
 - **Robustness:** An unterminated quote, reference or parenthesis can only
   affect the logical line it's on.
 - **Rule context:** A line starting with a tab is only highlighted as a
@@ -56,8 +58,8 @@ Time taken to highlight every line of a file in a musl-linked build of Vim
 | File                          | Lines  | Vim's File | This File |
 |-------------------------------|--------|------------|-----------|
 | A hand-written POSIX Makefile | 1,205  | 0.36s      | 0.04s     |
-| Vim's `src/Makefile`          | 4,779  | 1.01s      | 0.12s     |
-| GNU coreutils' `Makefile.in`  | 29,607 | 11.3s      | 2.0s      |
+| Vim's `src/Makefile`          | 4,779  | 1.01s      | 0.13s     |
+| GNU coreutils' `Makefile.in`  | 29,607 | 11.3s      | 2.1s      |
 
 Installation
 ------------
@@ -87,6 +89,7 @@ Highlighting Groups
 | `makeEscDollar`      | Special      | `$$` not followed by a shell name    |
 | `makeLineCont`       | Special      | Backslashes that continue lines      |
 | `makeConfig`         | PreCondit    | Autoconf substitutions like `@CC@`¹  |
+| `makeConfigIf`       | makeConfig   | `@if NAME` and `@endif NAME` lines¹  |
 | `makeComment`        | Comment      | Make comments                        |
 | `makeConditional`    | PreCondit    | `ifeq`, `.if`, `.for`, ...           |
 | `makeInclude`        | Include      | `include`, `.include`, ...           |
@@ -131,6 +134,13 @@ Limitations
   a `$(shell ...)` call or the word after `case`.
 - A backslash at the end of a line always continues the line, even when it's
   escaped by another backslash.
+- A continuation line is highlighted as the start of a command when the
+  previous line ends with a reference, since references at the end of a line
+  like Automake's `$(am__cd) \` usually expand to complete commands.
+- After a `;` in a target-specific assignment, GNU Make doesn't treat `#` as
+  the start of a comment, but this syntax file does.
+- Autoconf's `@if NAME` and `@endif NAME` lines end a variable's value when
+  they interrupt one that's continued onto other lines.
 - References nested more than three levels deep in the names of targets and
   variables keep a line from being recognized as a rule or assignment.
 
@@ -156,3 +166,12 @@ Syntax items in this file follow a few rules discovered while writing it:
   in a `nextgroup` they start before the white space that `skipwhite` skips.
 - A skip pattern that matches up to the end of a line makes a region
   continue onto the next line.
+- Zero-width matches are accepted when they have a `nextgroup`, which can
+  be used to start the contents of a region where a command can start.
+- Vim only looks for keywords after a character that isn't part of a
+  word, so with `-` in `iskeyword`, `-if` doesn't contain the keyword `if`.
+- At every column, Vim checks every pattern against what the current item
+  can contain, so each pattern slows down highlighting a little even where
+  it can't match. A match in a pending `nextgroup` is searched for in the
+  rest of the line, so keywords are much faster than matches after
+  operators.

@@ -178,3 +178,16 @@ space-after-backslash: one \
 	two
 UNTERMINATED_BRACES = ${oops
 DEEPLY_NESTED = $(a $(b $(c $(d $(e x)))))
+
+# Values start where a shell command can.
+CASE_VALUE = case $$p in *.c) echo c;; esac
+CONTINUED_VALUE = \
+	for p in $(LIST); do echo $$p; done
+SUBSHELL_VALUE = (cd sub && $(MAKE))
+NOT_A_KEYWORD = echo for in
+REGEX_VALUE = ^linktest\.c$$
+AFTER_REGEX_VALUE = still an assignment
+
+first-target \
+second-target: dep
+	@echo $@
