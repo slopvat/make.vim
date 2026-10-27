@@ -421,8 +421,10 @@ Syn match makeRecipePrefix contained /\%#=1[@+-]\%([ \t]*[@+-]\)*/
 " word, and "-" can be so that "-include" is a keyword, so keywords right
 " after a "-" prefix are matched separately. Matches like this are too slow
 " to use after every operator: Vim searches the rest of the line for them.
+" The "-" is leading context ("lc=1") so that the engine skips ahead to the
+" next "-" instead of trying a lookbehind at every column.
 Syn match makeShPrefixKeyword contained
-  \ /\%#=1-\@1<=\%(if\|while\|until\|for\|case\)\>/
+  \ /\%#=1-\%(if\|while\|until\|for\|case\)\>/lc=1
   \ nextgroup=@makeShCommand,makeShForName skipwhite
 exe 'syn match makeMisindented contained /\%#=1^' . s:misindented . '/'
 
