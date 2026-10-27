@@ -58,8 +58,8 @@ Time taken to highlight every line of a file in a musl-linked build of Vim
 | File                          | Lines  | Vim's File | This File |
 |-------------------------------|--------|------------|-----------|
 | A hand-written POSIX Makefile | 1,205  | 0.36s      | 0.04s     |
-| Vim's `src/Makefile`          | 4,779  | 1.01s      | 0.13s     |
-| GNU coreutils' `Makefile.in`  | 29,607 | 11.3s      | 2.1s      |
+| Vim's `src/Makefile`          | 4,779  | 1.01s      | 0.14s     |
+| GNU coreutils' `Makefile.in`  | 29,607 | 11.3s      | 2.3s      |
 
 Installation
 ------------
