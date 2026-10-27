@@ -11,9 +11,8 @@
 " - Models: claude-opus-5-5 (Anthropic)
 " - Scope: Wrote the syntax file from scratch based on the user's requirements
 "   and answers to design questions.
-" - References:
-"   - ~/.local/bin/vimruntime/syntax/make.vim (Vim's syntax file, consulted
-"     for the constructs it supports)
+" - References: https://github.com/vim/vim/blob/master/runtime/syntax/make.vim
+"   (0124320)
 "
 " Every pattern starts with "\%#=1" to select the backtracking regular
 " expression engine. The NFA engine allocates memory for each search, and in
