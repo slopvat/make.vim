@@ -210,3 +210,6 @@ echo '  FDARGS="..."  arguments for the kernel, INITRD=<path>'
 $$(OUTPUT)test-$(1).bin:
 	$$(CC) -o $$@ $$<
 endef
+CONTINUED_NAME-$(CONFIG_X) \
+		:= -DFOO \
+		-DBAR

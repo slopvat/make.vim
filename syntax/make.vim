@@ -59,9 +59,9 @@ let s:ref = '\$\%((' . s:balanced['('] . ')'
 " names, but not right before "=" where they're part of the operator.
 let s:var = '\%([^[:space:]:#=$+?!]\|[+?!]\%(!\{,2}=\)\@!\|' . s:ref . '\)\+'
 " Assignment operators, including OpenBSD's combinations like "?!=" and
-" "+!!=".
+" "+!!=". The operator may be on a continuation line after the name.
 let s:op = '\%(:::\|::\|[+?]\=!!\=\|[:+?]\)\=='
-let s:assign = '\s*' . s:op
+let s:assign = '\%(\s\|\\\n\)*' . s:op
 " The targets of a rule, which may continue onto other lines, and the rule
 " operator that follows them. Quotes aren't allowed outside of references
 " so that a line like "echo 'Targets:'" in a canned recipe isn't taken for
@@ -462,8 +462,10 @@ let s:template =<< trim END
   " so the skip pattern handles references like "$(shell echo '#')" that
   " don't contain other references. It doesn't skip "$$" at the end of a
   " line: a skip match that reaches the end of a line continues the region.
+  " When the operator is on a continuation line, the backslash before it is
+  " highlighted as part of the operator.
   syn region makeValue{S} contained matchgroup=makeAssignOp{S}
-    \ start=/\%#=1{OP}/
+    \ start=/\%#=1\%(\\\n\s*\)\={OP}/
     \ skip=/\%#=1\\\%([\\#]\|$\)\|\$\%(\$\_$\@!\|[({][^)}#]*#\)/
     \ end=/\%#=1\ze#\|$/ keepend
     \ contains=makeShCommandStart,@makeShTop{S},makeDeferredCall

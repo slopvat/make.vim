@@ -210,3 +210,6 @@
  210 [makeRef:$$(][makeEscRef:OUTPUT][makeRef:)][makeTargetDef:test-][makeRef:$(1)][makeTargetDef:.bin][makeRuleOp::]
  211 [makeRecipeDef:	][makeRef:$$(][makeEscRef:CC][makeRef:)][makeRecipeDef: -o ][makeEscAutoVar:$$@][makeRecipeDef: ][makeEscAutoVar:$$<]
  212 [makeDefine:endef]
+ 213 [makeVariable:CONTINUED_NAME-][makeRef:$(CONFIG_X)] [makeAssignOp:\]
+ 214 [makeAssignOp:		:=][makeValue: -DFOO ][makeLineCont:\]
+ 215 [makeValue:		-DBAR]
