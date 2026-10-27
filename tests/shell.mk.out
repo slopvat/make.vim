@@ -84,3 +84,4 @@
   84 [makeRecipe:	  ][makeShConditional:if][makeRecipe: test -f ][makeShVar:$$f][makeRecipe:; ][makeShConditional:then][makeRecipe: :; ][makeShConditional:fi][makeRecipe: ][makeShCommandLineCont:\]
   85 [makeRecipe:	][makeShRepeat:done]
   86 [makeRecipe:	echo ][makeShCmdSubDelim:$$((][makeShArith:x * (y + 1)][makeShCmdSubDelim:))][makeRecipe: ][makeShCmdSubDelim:$$((][makeShArith: ][makeShParam:$${n}][makeShArith: + ][makeShCmdSubDelim:$$(][makeShCmdSub:count][makeShCmdSubDelim:)][makeShArith: + ][makeShCmdSubDelim:`][makeShBacktick:wc -l < f][makeShCmdSubDelim:`][makeShArith: ][makeShCmdSubDelim:))]
+  87 [makeRecipe:	][makeRecipePrefix:@-][makeShPrefixKeyword:for][makeRecipe: f ][makeShIn:in][makeRecipe: a b; ][makeShRepeat:do][makeRecipe: echo ][makeShVar:$$f][makeRecipe:; ][makeShRepeat:done]

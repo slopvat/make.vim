@@ -198,3 +198,15 @@ BACKTICK_VALUE = `$(am__cd) sub && pwd`; \
 GROUP_VALUE = `{ for f in *; do echo $$f; done; }`
 $(addprefix $(obj)/, $(sort $(filter zImage.%, $(image-y)))): vmlinux
 	@echo $@
+
+# Directive names are only directives when followed by white space.
+include: dep
+	@echo the include target
+include = not a directive
+
+define HELP
+echo '  hdimage   - Build a disk image (also accept:)'
+echo '  FDARGS="..."  arguments for the kernel, INITRD=<path>'
+$$(OUTPUT)test-$(1).bin:
+	$$(CC) -o $$@ $$<
+endef

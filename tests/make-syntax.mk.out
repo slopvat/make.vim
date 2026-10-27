@@ -87,9 +87,9 @@
   87 [makeRuleBody:	three]
   88 [makeRecipe:	][makeRecipePrefix:@][makeRecipe:echo done]
   89 
-  90 [makeTarget:prog][makeTargetVarOp::] [makeVariable:CFLAGS] [makeAssignOp:+=][makeValue: -g]
-  91 [makeTarget:prog][makeTargetVarOp::] [makeModifier:export] [makeModifier:override] [makeVariable:PATH] [makeAssignOp::=][makeValue: /bin]
-  92 [makeTarget:debug][makeTargetVarOp::] [makeModifier:private] [makeVariable:DEBUG] [makeAssignOp:=][makeValue: 1]
+  90 [makeTarget:prog][makeTargetVarOp::] [makePrefixedVariable:CFLAGS] [makeAssignOp:+=][makeValue: -g]
+  91 [makeTarget:prog][makeTargetVarOp::] [makeModifier:export] [makeModifier:override] [makePrefixedVariable:PATH] [makeAssignOp::=][makeValue: /bin]
+  92 [makeTarget:debug][makeTargetVarOp::] [makeModifier:private] [makePrefixedVariable:DEBUG] [makeAssignOp:=][makeValue: 1]
   93 
   94 [makeTarget:all][makeRuleOp::][makeRuleBody: a ][makeSpecialTarget:.WAIT][makeRuleBody: b]
   95 
@@ -123,11 +123,11 @@
  123 [makeInclude:sinclude] [makeDirArgs:optional.mk]
  124 [makeStatement:vpath] [makePattern:%][makeDirArgs:.c src]
  125 [makeModifier:export] [makeDirArgs:CC CFLAGS]
- 126 [makeModifier:export] [makeVariable:PATH] [makeAssignOp:=][makeValue: /bin]
+ 126 [makeModifier:export] [makePrefixedVariable:PATH] [makeAssignOp:=][makeValue: /bin]
  127 [makeModifier:unexport] [makeDirArgs:LDFLAGS]
- 128 [makeModifier:override] [makeVariable:CFLAGS] [makeAssignOp:+=][makeValue: -I.]
+ 128 [makeModifier:override] [makePrefixedVariable:CFLAGS] [makeAssignOp:+=][makeValue: -I.]
  129 [makeModifier:override] [makeStatement:undefine] [makeDirArgs:OLD]
- 130 [makeModifier:private] [makeVariable:SECRET] [makeAssignOp:=][makeValue: 1]
+ 130 [makeModifier:private] [makePrefixedVariable:SECRET] [makeAssignOp:=][makeValue: 1]
  131 [makeStatement:undefine] [makeDirArgs:STALE]
  132 [makeStatement:load] [makeDirArgs:./ext.so]
  133 [makeStatement:-load] [makeDirArgs:./optional.so]
@@ -198,3 +198,15 @@
  198 [makeVariable:GROUP_VALUE] [makeAssignOp:=][makeValue: ][makeShCmdSubDelim:`][makeShBacktick:{ ][makeShRepeat:for][makeShBacktick: f ][makeShIn:in][makeShBacktick: *; ][makeShRepeat:do][makeShBacktick: echo ][makeShVar:$$f][makeShBacktick:; ][makeShRepeat:done][makeShBacktick:; }][makeShCmdSubDelim:`]
  199 [makeRef:$(][makeCallName:addprefix][makeTarget: ][makeRef:$(obj)][makeTarget:/, ][makeRef:$(][makeCallName:sort][makeTarget: ][makeRef:$(][makeCallName:filter][makeTarget: zImage.][makePattern:%][makeTarget:, ][makeRef:$(image-y))))][makeRuleOp::][makeRuleBody: vmlinux]
  200 [makeRecipe:	][makeRecipePrefix:@][makeRecipe:echo ][makeRef:$@]
+ 201 
+ 202 [makeComment:# Directive names are only directives when followed by white space.]
+ 203 [makeInclude:include][makeRuleOp::][makeRuleBody: dep]
+ 204 [makeRecipe:	][makeRecipePrefix:@][makeRecipe:echo the include target]
+ 205 [makeInclude:include] [makeAssignOp:=][makeValue: not a directive]
+ 206 
+ 207 [makeDefine:define] [makeDefineName:HELP]
+ 208 [makeDefineBody:echo '  hdimage   - Build a disk image (also accept:)']
+ 209 [makeDefineBody:echo '  FDARGS="..."  arguments for the kernel, INITRD=<path>']
+ 210 [makeRef:$$(][makeEscRef:OUTPUT][makeRef:)][makeTargetDef:test-][makeRef:$(1)][makeTargetDef:.bin][makeRuleOp::]
+ 211 [makeRecipeDef:	][makeRef:$$(][makeEscRef:CC][makeRef:)][makeRecipeDef: -o ][makeEscAutoVar:$$@][makeRecipeDef: ][makeEscAutoVar:$$<]
+ 212 [makeDefine:endef]

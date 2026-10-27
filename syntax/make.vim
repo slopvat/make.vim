@@ -58,12 +58,17 @@ let s:ref = '\$\%((' . s:balanced['('] . ')'
   \ . '\|{' . s:balanced['{'] . '}\|[^({]\)'
 " The name of a variable being assigned. "+", "?" and "!" are allowed in
 " names, but not right before "=" where they're part of the operator.
-let s:var = '\%([^[:space:]:#=$+?!]\|[+?!]=\@!\|' . s:ref . '\)\+'
-let s:assign = '\s*\%(:::\|::\|[:+?!]\)\=='
+let s:var = '\%([^[:space:]:#=$+?!]\|[+?!]\%(!\{,2}=\)\@!\|' . s:ref . '\)\+'
+" Assignment operators, including OpenBSD's combinations like "?!=" and
+" "+!!=".
+let s:op = '\%(:::\|::\|[+?]\=!!\=\|[:+?]\)\=='
+let s:assign = '\s*' . s:op
 " The targets of a rule, which may continue onto other lines, and the rule
-" operator that follows them.
-let s:targets = '\%([^[:space:]:#=$&]\|&:\@!\|' . s:ref . '\)'
-  \ . '\%([^:#=$&]\|\\\n\|&:\@!\|' . s:ref . '\)*'
+" operator that follows them. Quotes aren't allowed outside of references
+" so that a line like "echo 'Targets:'" in a canned recipe isn't taken for
+" a rule.
+let s:targets = '\%([^[:space:]:#=$&''"]\|&:\@!\|' . s:ref . '\)'
+  \ . '\%([^:#=$&''"]\|\\\n\|&:\@!\|' . s:ref . '\)*'
 let s:ruleop = '\s*&\=::\=[:=]\@!'
 " Whether this is a file that configure processes, e.g. Makefile.in.
 let s:autoconf = expand('%:e') =~# '^\%(in\|am\)$'
@@ -314,13 +319,14 @@ syn match makeContError /\%#=1\\\s\+$/
 " Recipes --------------------------------------------------------------------
 
 " The tab at the start of a recipe line, which is followed by a command and
-" optionally prefixes like "@" or a reference like "$(Q)" that expands to
-" one. Continuation lines, which commonly start with options like "-o", are
-" excluded.
-syn match makeRecipeStart contained transparent
-  \ /\%#=1^\%(\\\n\)\@2<!\%(@\h\w*@\)*\t\%(\$\%((\h\w*)\|{\h\w*}\)\ze\S\)\=/
-  \ contains=makeConfig,makeRef
-  \ nextgroup=makeRecipePrefix,@makeShCommand skipwhite
+" optionally prefixes like "@" or a reference like "$(Q)" or Autoconf
+" substitution like "@ECHO_CC@" that expands to one. Continuation lines,
+" which commonly start with options like "-o", are excluded.
+exe 'syn match makeRecipeStart contained transparent'
+  \ '/\%#=1^\%(\\\n\)\@2<!\%(@\h\w*@\)*\t\%(\$\%((\h\w*)\|{\h\w*}\)\ze\S'
+  \ . (s:autoconf ? '\|\%(@\h\w*@\)\+' : '') . '\)\=/'
+  \ 'contains=makeConfig,makeRef'
+  \ 'nextgroup=makeRecipePrefix,@makeShCommand skipwhite'
 syn match makeRecipePrefix contained /\%#=1[@+-]\%([ \t]*[@+-]\)*/
   \ nextgroup=makeShCommentAfterPrefix,makeShPrefixKeyword,@makeShCommand
   \ skipwhite
@@ -330,7 +336,7 @@ syn match makeRecipePrefix contained /\%#=1[@+-]\%([ \t]*[@+-]\)*/
 " to use after every operator: Vim searches the rest of the line for them.
 syn match makeShPrefixKeyword contained
   \ /\%#=1-\@1<=\%(if\|while\|until\|for\|case\)\>/
-  \ nextgroup=@makeShCommand skipwhite
+  \ nextgroup=@makeShCommand,makeShForName skipwhite
 exe 'syn match makeMisindented contained /\%#=1^' . s:misindented . '/'
 
 " Directive arguments --------------------------------------------------------
@@ -417,6 +423,7 @@ let s:template =<< trim END
   " when they start at the same place.
   syn match makeTarget{S} {CONTAINED} /\%#=1{BOL}{TARGETS}\ze{RULEOP}/
     \ contains=makeSpecialTarget,makePattern,@makeExpansions,@makeLineEnd
+    \{ESCAPED}
     \ nextgroup=makeRuleBody{S} skipwhite
   syn region makeRuleBody{S} contained matchgroup=makeRuleOp
     \ start=/\%#=1&\=::\=/ skip=/\%#=1\\$/ end=/\%#=1$/ keepend
@@ -433,14 +440,18 @@ let s:template =<< trim END
   syn match makeTarget{S} {CONTAINED} /\%#=1{BOL}{TARGETS}\ze{RULEOP}\s*
     \\%(\%(export\|override\|private\|unexport\)\s\+\)*{VAR}{ASSIGN}/
     \ contains=makeSpecialTarget,makePattern,@makeExpansions,@makeLineEnd
+    \{ESCAPED}
     \ nextgroup=makeTargetVarOp{S} skipwhite
   syn match makeTargetVarOp{S} contained /\%#=1&\=::\=/
-    \ nextgroup=makeModifier{S},makeVariable{S} skipwhite
+    \ nextgroup=makeModifier{S},makePrefixedVariable{S} skipwhite
 
+  " Variables after keywords like "export" and in target-specific
+  " assignments have a separate group so that what contains the line-start
+  " version doesn't also contain this one.
   syn match makeVariable{S} {CONTAINED} /\%#=1{BOL}{VAR}\ze{ASSIGN}/
-    \ contains=@makeExpansions nextgroup=makeValue{S} skipwhite
-  syn match makeVariable{S} contained /\%#=1{VAR}\ze{ASSIGN}/
-    \ contains=@makeExpansions nextgroup=makeValue{S} skipwhite
+    \ contains=@makeExpansions{ESCAPED} nextgroup=makeValue{S} skipwhite
+  syn match makePrefixedVariable{S} contained /\%#=1{VAR}\ze{ASSIGN}/
+    \ contains=@makeExpansions{ESCAPED} nextgroup=makeValue{S} skipwhite
   " Values are highlighted as shell code since that's how most of them end up
   " being used, except for calls to Make functions deferred with "$$", e.g.
   " "$$(error ...)". A value starts with the assignment operator, so the
@@ -452,17 +463,17 @@ let s:template =<< trim END
   " don't contain other references. It doesn't skip "$$" at the end of a
   " line: a skip match that reaches the end of a line continues the region.
   syn region makeValue{S} contained matchgroup=makeAssignOp{S}
-    \ start=/\%#=1\%(:::\|::\|[:+?!]\)\==/
+    \ start=/\%#=1{OP}/
     \ skip=/\%#=1\\\%([\\#]\|$\)\|\$\%(\$\_$\@!\|[({][^)}#]*#\)/
     \ end=/\%#=1\ze#\|$/ keepend
     \ contains=makeShCommandStart,@makeShTop{S},makeDeferredCall
 
   syn keyword makeModifier{S} {CONTAINED} export unexport override private
-    \ nextgroup=makeModifier{S},makeStatement,makeDirArgs,makeVariable{S},
-    \makeDefineAfterModifier skipwhite
+    \ nextgroup=makeModifier{S},makeStatement,makeDirArgs,
+    \makePrefixedVariable{S},makeDefineAfterModifier skipwhite
 END
 
-let s:values = {'BOL': s:bol, 'VAR': s:var, 'ASSIGN': s:assign,
+let s:values = {'BOL': s:bol, 'VAR': s:var, 'OP': s:op, 'ASSIGN': s:assign,
   \ 'TARGETS': s:targets, 'RULEOP': s:ruleop, 'INRULE': s:inrule,
   \ 'MISINDENTED': s:misindented}
 for [s:values.S, s:values.CONTAINED, s:values.CMDSUB, s:values.ESCAPED] in
@@ -487,10 +498,13 @@ syn keyword makeConditional ifeq ifneq ifdef ifndef
   \ nextgroup=makeDirArgs skipwhite
 syn keyword makeConditional else nextgroup=makeConditional skipwhite
 syn keyword makeConditional endif
+" GNU Make only treats these words as directives when they're followed by
+" white space, so "include:" starts a rule and "include = x" is an
+" assignment.
 syn keyword makeInclude include -include sinclude
-  \ nextgroup=makeDirArgs skipwhite
+  \ nextgroup=makeRuleBody,makeValue,makeDirArgs skipwhite
 syn keyword makeStatement vpath undefine load -load
-  \ nextgroup=makeDirArgs skipwhite
+  \ nextgroup=makeRuleBody,makeValue,makeDirArgs skipwhite
 
 " BSD directives, which may have whitespace after the ".". They're defined
 " after rules so a line like '.if "a:b"' isn't taken for one.
@@ -573,6 +587,7 @@ hi def link makeLineCont Special
 hi def link makeMisindented Error
 hi def link makeModifier Statement
 hi def link makeOrderOnly makeRuleOp
+hi def link makePrefixedVariable makeVariable
 hi def link makePattern Special
 hi def link makeRecipe Number
 hi def link makeRecipePrefix Special
@@ -603,8 +618,9 @@ hi def link makeTodo Todo
 hi def link makeVariable Identifier
 
 for s:group in ['makeAssignOp', 'makeInlineRecipe', 'makeModifier',
-              \ 'makeRecipe', 'makeShDQ', 'makeShParam', 'makeShSQ',
-              \ 'makeTarget', 'makeTargetVarOp', 'makeVariable']
+              \ 'makePrefixedVariable', 'makeRecipe', 'makeShDQ',
+              \ 'makeShParam', 'makeShSQ', 'makeTarget', 'makeTargetVarOp',
+              \ 'makeVariable']
   exe 'hi def link' s:group . 'Def' s:group
 endfor
 unlet s:group
@@ -612,7 +628,6 @@ unlet s:group
 let b:current_syntax = "make"
 
 let &cpo = s:cpo_save
-unlet s:cpo_save s:autoconf s:balanced s:bol s:ref s:var s:assign s:targets
-  \ s:ruleop s:inrule
-  \ s:misindented s:functions s:pattern_functions s:deferred_functions
-  \ s:special_targets
+unlet s:cpo_save s:autoconf s:balanced s:bol s:ref s:var s:op s:assign
+  \ s:targets s:ruleop s:inrule s:misindented s:functions s:pattern_functions
+  \ s:deferred_functions s:special_targets

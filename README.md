@@ -143,6 +143,9 @@ Limitations
   the start of a comment, but this syntax file does.
 - Autoconf's `@if NAME` and `@endif NAME` lines end a variable's value when
   they interrupt one that's continued onto other lines.
+- A line with a quote outside of a reference before its first `:` isn't
+  recognized as a rule, so that lines like `echo 'Targets:'` in canned
+  recipes aren't mistaken for rules.
 - References nested more than six levels deep in the names of targets and
   variables keep a line from being recognized as a rule or assignment.
 

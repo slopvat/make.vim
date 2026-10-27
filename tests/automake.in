@@ -42,3 +42,9 @@ stage1-start::
 	@cd $(HOST_SUBDIR); mv stage1-bfd bfd
 @endif bfd
 	@echo done
+
+tic$x: $(DEPS_TIC)
+	@ECHO_LD@ $(LINK) $(DEPS_TIC) -o $@
+.c.o:
+	@RULE_CC@
+	@ECHO_CC@$(CC) -c $<

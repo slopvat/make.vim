@@ -66,3 +66,8 @@
   66 [makeStatement:.error] [makeString:"fatal: ][makeRef:${PROG}][makeString:"]
   67 [makeStatement:.warning] [makeDirArgs:something odd]
   68 [makeStatement:.info] [makeDirArgs:just so you know]
+  69 
+  70 [makeComment:# OpenBSD's lazy shell assignments and combined operators.]
+  71 [makeVariable:UID] [makeAssignOp:!!=][makeValue: id -u]
+  72 [makeVariable:DATE] [makeAssignOp:?!=][makeValue: date]
+  73 [makeVariable:MORE][makeAssignOp:+!!=][makeValue:uname]

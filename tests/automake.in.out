@@ -42,3 +42,9 @@
   42 [makeRecipe:	][makeRecipePrefix:@][makeRecipe:cd ][makeRef:$(HOST_SUBDIR)][makeRecipe:; mv stage1-bfd bfd]
   43 [makeConfigIf:@endif bfd]
   44 [makeRecipe:	][makeRecipePrefix:@][makeRecipe:echo done]
+  45 
+  46 [makeTarget:tic][makeRef:$x][makeRuleOp::][makeRuleBody: ][makeRef:$(DEPS_TIC)]
+  47 [makeRecipe:	][makeConfig:@ECHO_LD@][makeRecipe: ][makeRef:$(LINK)][makeRecipe: ][makeRef:$(DEPS_TIC)][makeRecipe: -o ][makeRef:$@]
+  48 [makeTarget:.c.o][makeRuleOp::]
+  49 [makeRecipe:	][makeConfig:@RULE_CC@]
+  50 [makeRecipe:	][makeConfig:@ECHO_CC@][makeRef:$(CC)][makeRecipe: -c ][makeRef:$<]

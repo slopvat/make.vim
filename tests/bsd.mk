@@ -66,3 +66,8 @@ ${PROG}: ${OBJS}
 .error "fatal: ${PROG}"
 .warning something odd
 .info just so you know
+
+# OpenBSD's lazy shell assignments and combined operators.
+UID !!= id -u
+DATE ?!= date
+MORE+!!=uname

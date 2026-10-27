@@ -84,3 +84,4 @@ command-starts:
 	  if test -f $$f; then :; fi \
 	done
 	echo $$((x * (y + 1))) $$(( $${n} + $$(count) + `wc -l < f` ))
+	@-for f in a b; do echo $$f; done
